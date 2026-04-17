@@ -61,16 +61,39 @@ export async function POST(req: NextRequest) {
     })
     return response
   } catch (error) {
-    console.error('[LOGIN]', error)
+    console.error('[LOGIN ERROR]', error)
+
+    if (!(error instanceof Error)) {
+      return NextResponse.json({ message: 'Error interno del servidor.' }, { status: 500 })
+    }
+
+    const msg = error.message ?? ''
+    const name = (error as { name?: string }).name ?? ''
+
+    const isMissingUri = msg.includes('MONGODB_URI')
     const isNetworkError =
-      error instanceof Error &&
-      (error.message.includes('Could not connect') ||
-        error.message.includes('ECONNREFUSED') ||
-        error.message.includes('timed out') ||
-        error.name === 'MongooseServerSelectionError')
-    return NextResponse.json(
-      { message: isNetworkError ? 'No se pudo conectar a la base de datos. Reintentá en unos segundos.' : 'Error interno del servidor.' },
-      { status: 500 }
-    )
+      msg.includes('Could not connect') ||
+      msg.includes('ECONNREFUSED') ||
+      msg.includes('timed out') ||
+      msg.includes('querySrv') ||
+      msg.includes('ENOTFOUND') ||
+      name === 'MongooseServerSelectionError'
+
+    if (isMissingUri) {
+      console.error('[LOGIN] MONGODB_URI no está configurada')
+      return NextResponse.json(
+        { message: 'Error de configuración del servidor. Contactá al administrador.' },
+        { status: 500 }
+      )
+    }
+
+    if (isNetworkError) {
+      return NextResponse.json(
+        { message: 'No se pudo conectar a la base de datos. Reintentá en unos segundos.' },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({ message: 'Error interno del servidor.' }, { status: 500 })
   }
 }

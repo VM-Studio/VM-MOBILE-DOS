@@ -113,6 +113,17 @@ const withPWAPlugin = withPWA(pwaOptions)
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Paquetes que Next.js NO debe bundlear — se resuelven en runtime (Node.js nativo)
+  serverExternalPackages: [
+    'mongoose',
+    'bcryptjs',
+    'jsonwebtoken',
+    'nodemailer',
+    'web-push',
+    '@react-pdf/renderer',
+    'xlsx',
+  ],
+
   // Comprimir respuestas HTTP
   compress: true,
 
