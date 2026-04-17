@@ -68,19 +68,34 @@ export async function POST(req: NextRequest) {
     }
 
     const msg = error.message ?? ''
-    const name = (error as { name?: string }).name ?? ''
+    const name = (error as { name?: string; code?: number | string }).name ?? ''
+    const code = (error as { name?: string; code?: number | string }).code
 
     const isMissingUri = msg.includes('MONGODB_URI')
+
     const isNetworkError =
+      name === 'MongooseServerSelectionError' ||
+      name === 'MongoServerSelectionError' ||
       msg.includes('Could not connect') ||
       msg.includes('ECONNREFUSED') ||
       msg.includes('timed out') ||
       msg.includes('querySrv') ||
       msg.includes('ENOTFOUND') ||
-      name === 'MongooseServerSelectionError'
+      msg.includes('failed to connect') ||
+      msg.includes('connection refused')
+
+    // MongoDB Atlas: IP no está en el access list o credenciales incorrectas
+    const isAuthError =
+      name === 'MongoServerError' ||
+      msg.includes('Authentication failed') ||
+      msg.includes('bad auth') ||
+      msg.includes('not authorized') ||
+      msg.includes('Unauthorized') ||
+      code === 18 || // MongoDB auth error code
+      code === 13   // MongoDB unauthorized code
 
     if (isMissingUri) {
-      console.error('[LOGIN] MONGODB_URI no está configurada')
+      console.error('[LOGIN] MONGODB_URI no está configurada en las variables de entorno')
       return NextResponse.json(
         { message: 'Error de configuración del servidor. Contactá al administrador.' },
         { status: 500 }
@@ -88,12 +103,22 @@ export async function POST(req: NextRequest) {
     }
 
     if (isNetworkError) {
+      console.error('[LOGIN] Error de red/conexión a MongoDB:', msg)
       return NextResponse.json(
         { message: 'No se pudo conectar a la base de datos. Reintentá en unos segundos.' },
+        { status: 503 }
+      )
+    }
+
+    if (isAuthError) {
+      console.error('[LOGIN] Error de autenticación en MongoDB Atlas (verificá credenciales e IP access list):', msg)
+      return NextResponse.json(
+        { message: 'Error de configuración de la base de datos. Contactá al administrador.' },
         { status: 500 }
       )
     }
 
+    console.error('[LOGIN] Error no clasificado:', name, msg)
     return NextResponse.json({ message: 'Error interno del servidor.' }, { status: 500 })
   }
 }
