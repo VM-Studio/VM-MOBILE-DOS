@@ -61,64 +61,51 @@ export async function POST(req: NextRequest) {
     })
     return response
   } catch (error) {
-    console.error('[LOGIN ERROR]', error)
+    const msg = error instanceof Error ? error.message : String(error)
+    const name = (error as { name?: string }).name ?? 'UnknownError'
+    console.error('[LOGIN ERROR]', name, msg, error)
 
-    if (!(error instanceof Error)) {
-      return NextResponse.json({ message: 'Error interno del servidor.' }, { status: 500 })
-    }
-
-    const msg = error.message ?? ''
-    const name = (error as { name?: string; code?: number | string }).name ?? ''
-    const code = (error as { name?: string; code?: number | string }).code
-
-    const isMissingUri = msg.includes('MONGODB_URI')
-
-    const isNetworkError =
-      name === 'MongooseServerSelectionError' ||
-      name === 'MongoServerSelectionError' ||
-      msg.includes('Could not connect') ||
-      msg.includes('ECONNREFUSED') ||
-      msg.includes('timed out') ||
-      msg.includes('querySrv') ||
-      msg.includes('ENOTFOUND') ||
-      msg.includes('failed to connect') ||
-      msg.includes('connection refused')
-
-    // MongoDB Atlas: IP no está en el access list o credenciales incorrectas
-    const isAuthError =
-      name === 'MongoServerError' ||
-      msg.includes('Authentication failed') ||
-      msg.includes('bad auth') ||
-      msg.includes('not authorized') ||
-      msg.includes('Unauthorized') ||
-      code === 18 || // MongoDB auth error code
-      code === 13   // MongoDB unauthorized code
-
-    if (isMissingUri) {
-      console.error('[LOGIN] MONGODB_URI no está configurada en las variables de entorno')
+    // Sin URI configurada en Vercel
+    if (msg.includes('MONGODB_URI')) {
       return NextResponse.json(
-        { message: 'Error de configuración del servidor. Contactá al administrador.' },
+        { message: 'MONGODB_URI no está configurada en Vercel. Agregala en Settings → Environment Variables.' },
         { status: 500 }
       )
     }
 
-    if (isNetworkError) {
-      console.error('[LOGIN] Error de red/conexión a MongoDB:', msg)
+    // No puede llegar al cluster (timeout, ENOTFOUND, ECONNREFUSED, DNS)
+    if (
+      name === 'MongooseServerSelectionError' ||
+      name === 'MongoServerSelectionError' ||
+      msg.includes('ECONNREFUSED') ||
+      msg.includes('ENOTFOUND') ||
+      msg.includes('timed out') ||
+      msg.includes('querySrv') ||
+      msg.includes('failed to connect')
+    ) {
       return NextResponse.json(
-        { message: 'No se pudo conectar a la base de datos. Reintentá en unos segundos.' },
+        { message: `No se puede conectar a MongoDB Atlas. Verificá: 1) Network Access → 0.0.0.0/0. 2) El cluster no está pausado. Error: ${msg}` },
         { status: 503 }
       )
     }
 
-    if (isAuthError) {
-      console.error('[LOGIN] Error de autenticación en MongoDB Atlas (verificá credenciales e IP access list):', msg)
+    // Credenciales incorrectas en la URI
+    if (
+      msg.includes('Authentication failed') ||
+      msg.includes('bad auth') ||
+      msg.includes('not authorized') ||
+      (error as { code?: number }).code === 18
+    ) {
       return NextResponse.json(
-        { message: 'Error de configuración de la base de datos. Contactá al administrador.' },
+        { message: `Credenciales de MongoDB incorrectas en MONGODB_URI. Verificá usuario/contraseña en Atlas. Error: ${msg}` },
         { status: 500 }
       )
     }
 
-    console.error('[LOGIN] Error no clasificado:', name, msg)
-    return NextResponse.json({ message: 'Error interno del servidor.' }, { status: 500 })
+    // Cualquier otro error — mostrar detalle real para diagnosticar
+    return NextResponse.json(
+      { message: `Error: ${name} — ${msg}` },
+      { status: 500 }
+    )
   }
 }
