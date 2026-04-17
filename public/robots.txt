@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+# Bloquear rutas de API y archivos internos de Next.js
+Disallow: /api/
+Disallow: /_next/
+Disallow: /404
+Disallow: /500
+
+# Sitemap
+Sitemap: https://vmstudioweb.online/sitemap.xml
