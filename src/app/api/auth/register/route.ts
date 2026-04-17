@@ -56,6 +56,33 @@ export async function POST(req: NextRequest) {
     )
   } catch (error) {
     console.error('[REGISTER ERROR]', error)
+
+    const err = error as Error & { name?: string }
+    const msg = err.message ?? ''
+    const name = err.name ?? ''
+
+    const isMissingUri = msg.includes('MONGODB_URI')
+    const isNetworkError =
+      msg.includes('Could not connect') ||
+      msg.includes('ECONNREFUSED') ||
+      msg.includes('timed out') ||
+      msg.includes('querySrv') ||
+      msg.includes('ENOTFOUND') ||
+      name === 'MongooseServerSelectionError'
+
+    if (isMissingUri) {
+      return NextResponse.json(
+        { message: 'Error de configuración del servidor. Contactá al administrador.' },
+        { status: 500 }
+      )
+    }
+    if (isNetworkError) {
+      return NextResponse.json(
+        { message: 'No se pudo conectar a la base de datos. Reintentá en unos segundos.' },
+        { status: 500 }
+      )
+    }
+
     return NextResponse.json({ message: 'Error interno del servidor.' }, { status: 500 })
   }
 }
