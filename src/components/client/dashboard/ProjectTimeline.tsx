@@ -115,88 +115,101 @@ function StageNode({ stage, isLast, nextLineColor }: {
   const keyword = getKeyword(stage.name)
   const hasMore = stage.name.trim().length > 15
 
+  const dotColor =
+    stage.status === 'completado' ? 'bg-[#2563EB]' :
+    stage.status === 'en_revision' ? 'bg-amber-400' :
+    stage.status === 'en_progreso' ? 'bg-blue-400' :
+    stage.status === 'rechazado'   ? 'bg-red-400'   : 'bg-gray-300'
+
   return (
     <div className="flex items-start">
-      {/* Nodo + texto */}
-      <div className="flex flex-col items-center relative" style={{ minWidth: 56 }}>
+      {/* Nodo */}
+      <div
+        className={`
+          flex flex-col items-center transition-all duration-300 ease-in-out
+          ${expanded
+            ? 'bg-white border border-gray-100 shadow-md rounded-xl px-3 py-2.5'
+            : 'px-0 py-0'
+          }
+        `}
+        style={{ minWidth: expanded ? 140 : 56 }}
+      >
+        {/* Fila: círculo + (cuando expandido) estado label */}
+        <div className={`flex items-center gap-2 ${expanded ? 'self-start w-full' : 'flex-col'}`}>
+          {/* Círculo */}
+          <div className={`
+            flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center
+            transition-all duration-200
+            ${cfg.ring} ${cfg.bg}
+          `}>
+            {stage.status === 'en_progreso' ? (
+              <span className="w-1.5 h-1.5 rounded-full bg-[#2563EB] block animate-pulse" />
+            ) : stage.status === 'pendiente' ? (
+              <span className="w-1.5 h-1.5 rounded-full bg-gray-300 block" />
+            ) : (
+              <span className={`text-[9px] font-bold leading-none ${cfg.textColor}`}>
+                {cfg.icon}
+              </span>
+            )}
+          </div>
 
-        {/* Círculo pequeño */}
-        <div className={`
-          w-6 h-6 rounded-full flex items-center justify-center z-10
-          transition-all duration-200
-          ${cfg.ring} ${cfg.bg}
-        `}>
-          {stage.status === 'en_progreso' ? (
-            /* Punto pulsante para en progreso */
-            <span className="w-1.5 h-1.5 rounded-full bg-[#2563EB] block animate-pulse" />
-          ) : stage.status === 'pendiente' ? (
-            <span className="w-1.5 h-1.5 rounded-full bg-gray-300 block" />
-          ) : (
-            <span className={`text-[9px] font-bold leading-none ${cfg.textColor}`}>
-              {cfg.icon}
-            </span>
-          )}
-        </div>
-
-        {/* Keyword */}
-        <p className={`text-center mt-1 text-[9px] font-semibold leading-tight max-w-[52px] tracking-wide ${cfg.labelColor}`}>
-          {keyword}
-        </p>
-
-        {/* Leer más */}
-        {hasMore && (
-          <button
-            onClick={() => setExpanded(v => !v)}
-            className={`mt-0.5 text-[8px] leading-tight transition-colors ${
-              expanded ? 'text-[#2563EB]' : 'text-gray-300 hover:text-gray-500'
-            }`}
-          >
-            {expanded ? '▲' : '▼'}
-          </button>
-        )}
-
-        {/* Panel expandido — tarjeta blanca con borde y sombra */}
-        {expanded && (
-          <div
-            className="absolute z-30 left-1/2 -translate-x-1/2 w-52 bg-white border border-gray-100 shadow-lg rounded-md p-3"
-            style={{ top: '4rem' }}
-          >
-            {/* Indicador de estado */}
-            <div className="flex items-center gap-1.5 mb-2">
-              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                stage.status === 'completado' ? 'bg-[#2563EB]' :
-                stage.status === 'en_revision' ? 'bg-amber-400' :
-                stage.status === 'en_progreso' ? 'bg-blue-300' :
-                stage.status === 'rechazado' ? 'bg-red-400' : 'bg-gray-300'
-              }`} />
-              <span className="text-[8px] uppercase tracking-widest text-gray-400 font-medium">
+          {/* Estado label — solo cuando expandido */}
+          {expanded && (
+            <div className="flex items-center gap-1 min-w-0">
+              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dotColor}`} />
+              <span className="text-[8px] uppercase tracking-widest text-gray-400 font-medium truncate">
                 {stage.status.replace('_', ' ')}
               </span>
             </div>
-            {/* Nombre completo */}
-            <p className="text-[11px] text-gray-700 leading-relaxed font-medium">
-              {stage.name}
-            </p>
-            {/* Fecha */}
-            {stage.completedAt && (
-              <p className="text-[9px] text-gray-400 mt-1.5 border-t border-gray-50 pt-1.5">
-                Completado el {format(new Date(stage.completedAt), 'dd/MM/yyyy')}
-              </p>
-            )}
-          </div>
+          )}
+        </div>
+
+        {/* Collapsed: keyword */}
+        {!expanded && (
+          <p className={`text-center mt-1 text-[9px] font-semibold leading-tight max-w-[52px] tracking-wide ${cfg.labelColor}`}>
+            {keyword}
+          </p>
         )}
 
-        {/* Fecha debajo del keyword */}
-        {stage.completedAt && !expanded && (
+        {/* Expanded: nombre completo */}
+        {expanded && (
+          <p className="mt-2 text-[11px] text-gray-700 leading-relaxed font-medium self-start">
+            {stage.name}
+          </p>
+        )}
+
+        {/* Fecha — solo cuando expandido */}
+        {expanded && stage.completedAt && (
+          <p className="mt-1.5 text-[9px] text-gray-400 self-start border-t border-gray-100 pt-1.5 w-full">
+            Completado el {format(new Date(stage.completedAt), 'dd/MM/yyyy')}
+          </p>
+        )}
+
+        {/* Fecha colapsada debajo del keyword */}
+        {!expanded && stage.completedAt && (
           <p className="text-[8px] text-gray-300 mt-0.5 text-center">
             {format(new Date(stage.completedAt), 'dd/MM')}
           </p>
+        )}
+
+        {/* Botón ver más / cerrar */}
+        {hasMore && (
+          <button
+            onClick={() => setExpanded(v => !v)}
+            className={`mt-1 text-[8px] leading-tight transition-colors ${
+              expanded
+                ? 'text-[#2563EB] self-end'
+                : 'text-gray-300 hover:text-gray-500'
+            }`}
+          >
+            {expanded ? '▲ cerrar' : '▼'}
+          </button>
         )}
       </div>
 
       {/* Línea conectora */}
       {!isLast && (
-        <div className="flex items-center" style={{ marginTop: 11 }}>
+        <div className="flex items-center flex-shrink-0" style={{ marginTop: 11 }}>
           <div className="h-px w-5 transition-colors duration-300" style={{ backgroundColor: nextLineColor }} />
         </div>
       )}
