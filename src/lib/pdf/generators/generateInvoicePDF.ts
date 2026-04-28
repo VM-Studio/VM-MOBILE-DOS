@@ -1,10 +1,22 @@
 import { renderToBuffer, DocumentProps } from '@react-pdf/renderer'
 import React from 'react'
+import path from 'path'
+import fs from 'fs'
 import { InvoicePDF, InvoicePDFProps } from '../components/InvoicePDF'
 
 export async function generateInvoicePDF(props: InvoicePDFProps): Promise<Buffer> {
   try {
-    const element = React.createElement(InvoicePDF, props) as React.ReactElement<DocumentProps>
+    // Leer el logo como base64 para embeber en el PDF
+    let logoBase64: string | undefined
+    try {
+      const logoPath = path.join(process.cwd(), 'public', 'log.png')
+      const logoBuffer = fs.readFileSync(logoPath)
+      logoBase64 = `data:image/png;base64,${logoBuffer.toString('base64')}`
+    } catch {
+      logoBase64 = undefined
+    }
+
+    const element = React.createElement(InvoicePDF, { ...props, logoBase64 }) as React.ReactElement<DocumentProps>
     const buffer = await renderToBuffer(element)
     return buffer
   } catch (err) {
