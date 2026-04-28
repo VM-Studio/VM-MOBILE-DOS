@@ -50,8 +50,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return
     }
     setToken(stored)
+
+    // Pre-populate from cached user so the dashboard renders immediately
+    // without waiting for the fetchMe network call (eliminates loading spinner
+    // for returning users). fetchMe still runs in the background to validate
+    // the token and refresh the full user object.
+    const cachedRaw = localStorage.getItem('vm_user')
+    let resolvedFromCache = false
+    if (cachedRaw) {
+      try {
+        const c = JSON.parse(cachedRaw)
+        // vm_user stores `id` (not `_id`) — map it back
+        setUser({
+          _id: c.id ?? c._id ?? '',
+          name: c.name ?? '',
+          email: c.email ?? '',
+          role: c.role,
+          isVerified: true,
+        } as AuthUser)
+        setLoading(false)
+        resolvedFromCache = true
+      } catch {
+        // malformed cache — fall through to fetchMe
+      }
+    }
+
     fetchMe(stored)
       .then((u: AuthUser) => {
+        // Update with the full, verified user object from the server
         setUser(u)
       })
       .catch(() => {
@@ -59,8 +85,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.removeItem('vm_user')
         document.cookie = 'vm_token=; path=/; max-age=0; SameSite=Lax'
         setToken(null)
+        setUser(null)
       })
-      .finally(() => setLoading(false))
+      .finally(() => {
+        if (!resolvedFromCache) setLoading(false)
+      })
   }, [])
 
   const login = useCallback(

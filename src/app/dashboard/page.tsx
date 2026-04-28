@@ -1,14 +1,7 @@
-'use client'
+import { redirect } from 'next/navigation'
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-
+// Server-side redirect — avoids the client-side hydration → render → useEffect
+// → router.replace() cycle that caused a blank flash on every dashboard visit.
 export default function DashboardPage() {
-  const router = useRouter()
-
-  useEffect(() => {
-    router.replace('/dashboard/proyectos')
-  }, [router])
-
-  return null
+  redirect('/dashboard/proyectos')
 }

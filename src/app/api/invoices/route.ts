@@ -14,24 +14,32 @@ export async function GET(req: NextRequest) {
 
   const now = new Date()
 
-  // Habilitar automáticamente las facturas cuya fecha de habilitación llegó
-  for (const invoice of invoices) {
-    if (
-      !invoice.paymentEnabled &&
-      invoice.enabledAt &&
-      now >= new Date(invoice.enabledAt)
-    ) {
-      await Invoice.updateOne({ _id: invoice._id }, { paymentEnabled: true })
-      invoice.paymentEnabled = true
+  // Identify invoices that need to be auto-enabled in one pass
+  const toEnable = invoices.filter(
+    (inv) => !inv.paymentEnabled && inv.enabledAt && now >= new Date(inv.enabledAt)
+  )
 
-      await sendNotification({
-        userId: user.id,
-        type: 'factura',
-        title: 'Segunda cuota disponible',
-        message: `Ya podés abonar el saldo final de tu proyecto`,
-        link: '/dashboard/facturacion',
-      })
-    }
+  if (toEnable.length > 0) {
+    // Single bulk write instead of one updateOne per invoice
+    await Invoice.updateMany(
+      { _id: { $in: toEnable.map((i) => i._id) } },
+      { paymentEnabled: true }
+    )
+    // Update local array so the response is accurate
+    for (const inv of toEnable) inv.paymentEnabled = true
+
+    // Send notifications in parallel instead of sequentially
+    await Promise.all(
+      toEnable.map(() =>
+        sendNotification({
+          userId: user.id,
+          type: 'factura',
+          title: 'Segunda cuota disponible',
+          message: `Ya podés abonar el saldo final de tu proyecto`,
+          link: '/dashboard/facturacion',
+        })
+      )
+    )
   }
 
   const totalPagado = invoices

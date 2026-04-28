@@ -110,6 +110,8 @@ InvoiceSchema.index({ status: 1 })
 InvoiceSchema.index({ clientId: 1, status: 1 })
 InvoiceSchema.index({ dueDate: 1 })
 InvoiceSchema.index({ createdAt: -1 })
+// Speeds up the auto-enable check on GET /api/invoices
+InvoiceSchema.index({ clientId: 1, paymentEnabled: 1, enabledAt: 1 })
 
 const Invoice: Model<IInvoice> =
   mongoose.models.Invoice ?? mongoose.model<IInvoice>('Invoice', InvoiceSchema)

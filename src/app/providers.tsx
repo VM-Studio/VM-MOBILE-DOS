@@ -27,9 +27,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <SWRConfig
       value={{
         fetcher,
-        revalidateOnFocus: true,
+        // Don't re-fetch all data every time the user switches tabs or
+        // clicks back on the window — the app already uses explicit mutations
+        // (mutate/refresh) after actions and polling for messages/notifications.
+        revalidateOnFocus: false,
         revalidateOnReconnect: true,
-        dedupingInterval: 5000,
+        // Dedupe identical requests within a 10s window to avoid redundant
+        // parallel fetches when multiple components mount at the same time.
+        dedupingInterval: 10000,
         errorRetryCount: 3,
         shouldRetryOnError: true,
       }}
