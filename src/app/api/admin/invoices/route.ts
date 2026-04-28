@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { getAdminFromToken } from '@/lib/helpers/getAdminFromToken';
 import { sendNotification } from '@/lib/helpers/sendNotification';
+import { generateInvoiceNumber, formatInvoiceNumber } from '@/lib/helpers/generateInvoiceNumber';
 import Invoice from '@/lib/models/Invoice';
 import User from '@/lib/models/User';
 import { sendEmail } from '@/lib/auth/sendEmail';
@@ -47,11 +48,16 @@ export async function POST(req: NextRequest) {
   await dbConnect();
 
   const body = await req.json();
-  const { clientId, number, description, items, amount, dueDate } = body;
+  const { clientId, number: providedNumber, description, items, amount, dueDate } = body;
 
-  if (!clientId || !number || !description || !amount) {
+  if (!clientId || !description || !amount) {
     return NextResponse.json({ error: 'Faltan campos requeridos' }, { status: 400 });
   }
+
+  // Si el admin no provee un número, se genera automáticamente
+  const number = providedNumber
+    ? String(providedNumber)
+    : formatInvoiceNumber(await generateInvoiceNumber())
 
   const invoice = await Invoice.create({
     clientId,

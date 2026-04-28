@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { getAdminFromToken } from '@/lib/helpers/getAdminFromToken';
 import { sendNotification } from '@/lib/helpers/sendNotification';
+import { generateInvoiceNumber, formatInvoiceNumber } from '@/lib/helpers/generateInvoiceNumber';
 import Project from '@/lib/models/Project';
 import Invoice from '@/lib/models/Invoice';
 import User from '@/lib/models/User';
@@ -88,18 +89,15 @@ export async function POST(req: NextRequest) {
     const mitad = Math.round(budget / 2);
     const mitadResto = budget - mitad;
 
-    const lastInvoice = await Invoice.findOne()
-      .sort({ createdAt: -1 })
-      .select('number')
-      .lean();
-    const lastNum = lastInvoice
-      ? parseInt((lastInvoice.number as string).replace(/\D/g, '')) || 0
-      : 0;
+    // Generar par de números consecutivos con el nuevo sistema
+    const firstNum = await generateInvoiceNumber()
+    const num1 = formatInvoiceNumber(firstNum)
+    const num2 = formatInvoiceNumber(firstNum + 1)
 
     const invoice1Data = {
       clientId,
       projectId: project._id,
-      number: `F-${String(lastNum + 1).padStart(5, '0')}`,
+      number: num1,
       description: `${name} — Anticipo 50% (inicio del proyecto)`,
       amount: mitad,
       status: 'pendiente' as const,
@@ -115,7 +113,7 @@ export async function POST(req: NextRequest) {
     const invoice2Data = {
       clientId,
       projectId: project._id,
-      number: `F-${String(lastNum + 2).padStart(5, '0')}`,
+      number: num2,
       description: `${name} — Saldo final 50% (entrega del proyecto)`,
       amount: mitadResto,
       status: 'pendiente' as const,

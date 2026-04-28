@@ -42,18 +42,18 @@ export default function DashboardPlanesPage() {
   const { projects } = useMyProjects()
 
   const [planAsignado, setPlanAsignado] = useState<PlanAsignadoData | null | undefined>(undefined)
+  const [invoiceTypesPagados, setInvoiceTypesPagados] = useState<string[]>([])
   const [publicPlanes, setPublicPlanes] = useState<PublicPlan[]>([])
   const [loading, setLoading] = useState(true)
 
   const projectId = projects?.[0]?._id
 
-  useEffect(() => {
+  const fetchPlan = (isInitial = false) => {
     if (!token || !projectId) {
-      // No project yet — load catalog
       fetch('/api/planes')
         .then((r) => r.json())
         .then((d) => setPublicPlanes(d.planes || []))
-        .finally(() => setLoading(false))
+        .finally(() => { if (isInitial) setLoading(false) })
       return
     }
 
@@ -63,11 +63,25 @@ export default function DashboardPlanesPage() {
       .then((r) => r.json())
       .then((d) => {
         setPlanAsignado(d.planAsignado ?? null)
+        setInvoiceTypesPagados(d.invoiceTypesPagados ?? [])
         if (!d.planAsignado) {
           return fetch('/api/planes').then((r) => r.json()).then((pd) => setPublicPlanes(pd.planes || []))
         }
       })
-      .finally(() => setLoading(false))
+      .finally(() => { if (isInitial) setLoading(false) })
+  }
+
+  useEffect(() => {
+    fetchPlan(true)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, projectId])
+
+  // Auto-refresh cada 30 segundos para reflejar actualizaciones del módulo de facturación
+  useEffect(() => {
+    if (!token || !projectId) return
+    const interval = setInterval(() => fetchPlan(false), 30_000)
+    return () => clearInterval(interval)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, projectId])
 
   if (loading) {
@@ -127,22 +141,45 @@ export default function DashboardPlanesPage() {
               )}
 
               {planAsignado.estadoPago === 'pago_parcial' && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-amber-600 font-medium">Pago parcial</span>
-                    <span className="text-gray-600">
-                      ${planAsignado.montoPagado.toLocaleString('es-AR')} de ${planAsignado.precioAcordado.toLocaleString('es-AR')} ARS
-                    </span>
-                  </div>
-                  <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-amber-400 rounded-full transition-all duration-500"
-                      style={{ width: `${porcentajePago}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between text-xs text-gray-400">
-                    <span>{Math.round(porcentajePago)}% pagado</span>
-                    <span>Pendiente: ${Math.max(planAsignado.precioAcordado - planAsignado.montoPagado, 0).toLocaleString('es-AR')} ARS</span>
+                <div className="space-y-3">
+                  {/* Etiqueta descriptiva según el tipo de cuota pagada */}
+                  {invoiceTypesPagados.includes('anticipo') && !invoiceTypesPagados.includes('saldo_final') ? (
+                    <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 px-4 py-3">
+                      <span className="text-amber-500 text-lg">½</span>
+                      <div>
+                        <p className="text-sm font-medium text-amber-700">Primer 50% pagado</p>
+                        <p className="text-xs text-amber-600 mt-0.5">
+                          Resta abonar:{' '}
+                          <span className="font-semibold">
+                            ${Math.max(planAsignado.precioAcordado - planAsignado.montoPagado, 0).toLocaleString('es-AR')} ARS
+                          </span>{' '}
+                          (saldo final)
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 px-4 py-3">
+                      <span className="text-amber-500 text-lg">◑</span>
+                      <div>
+                        <p className="text-sm font-medium text-amber-700">Pago parcial</p>
+                        <p className="text-xs text-amber-600">
+                          ${planAsignado.montoPagado.toLocaleString('es-AR')} de ${planAsignado.precioAcordado.toLocaleString('es-AR')} ARS
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {/* Barra de progreso */}
+                  <div className="space-y-1">
+                    <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-amber-400 rounded-full transition-all duration-500"
+                        style={{ width: `${porcentajePago}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-400">
+                      <span>{Math.round(porcentajePago)}% pagado</span>
+                      <span>Pendiente: ${Math.max(planAsignado.precioAcordado - planAsignado.montoPagado, 0).toLocaleString('es-AR')} ARS</span>
+                    </div>
                   </div>
                 </div>
               )}

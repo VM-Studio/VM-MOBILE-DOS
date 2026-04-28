@@ -1,5 +1,6 @@
 import dbConnect from '@/lib/db'
 import Invoice from '@/lib/models/Invoice'
+import PlanAsignado from '@/lib/models/PlanAsignado'
 import Project from '@/lib/models/Project'
 import User from '@/lib/models/User'
 import { sendNotification } from '@/lib/helpers/sendNotification'
@@ -39,6 +40,9 @@ export async function confirmPayment({ invoiceId, method, mpPaymentId, processed
   if (method === 'transferencia') invoice.transferConfirmadoAt = new Date()
 
   await invoice.save()
+
+  // Sincronizar PlanAsignado del proyecto
+  await syncPlanAsignado(invoiceId)
 
   // Notificación in-app al cliente
   await sendNotification({
@@ -98,6 +102,45 @@ export async function rejectTransfer({ invoiceId, motivo, processedBy }: RejectT
   })
 
   return invoice
+}
+
+/**
+ * Sincroniza el PlanAsignado de un proyecto cuando se confirma el pago de una factura.
+ * Recalcula montoPagado y estadoPago sumando todas las facturas pagadas del proyecto.
+ */
+export async function syncPlanAsignado(invoiceId: string): Promise<void> {
+  try {
+    await dbConnect()
+    const invoice = await Invoice.findById(invoiceId).lean()
+    if (!invoice || !invoice.projectId) return
+
+    const planAsignado = await PlanAsignado.findOne({ proyectoId: invoice.projectId })
+    if (!planAsignado) return
+
+    // Sumar todas las facturas pagadas vinculadas al proyecto
+    const facturasPagadas = await Invoice.find({
+      projectId: invoice.projectId,
+      status: 'pagado',
+    }).lean()
+
+    const montoPagado = facturasPagadas.reduce((sum, f) => sum + (f.amount ?? 0), 0)
+
+    let estadoPago: 'pendiente' | 'pago_parcial' | 'pago_total'
+    if (montoPagado <= 0) {
+      estadoPago = 'pendiente'
+    } else if (montoPagado >= planAsignado.precioAcordado) {
+      estadoPago = 'pago_total'
+    } else {
+      estadoPago = 'pago_parcial'
+    }
+
+    planAsignado.montoPagado = montoPagado
+    planAsignado.estadoPago = estadoPago
+    planAsignado.fechaUltimoPago = new Date()
+    await planAsignado.save()
+  } catch (err) {
+    console.error('[syncPlanAsignado] Error:', err)
+  }
 }
 
 /**

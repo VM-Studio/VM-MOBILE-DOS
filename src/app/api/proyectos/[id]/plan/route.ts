@@ -4,6 +4,7 @@ import dbConnect from '@/lib/db'
 import PlanAsignado from '@/lib/models/PlanAsignado'
 import Plan from '@/lib/models/Plan'
 import Project from '@/lib/models/Project'
+import Invoice from '@/lib/models/Invoice'
 import { verifyToken } from '@/lib/auth/generateToken'
 
 function getAdmin(req: NextRequest) {
@@ -54,7 +55,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ planAsignado: null }, { status: 200 })
     }
 
-    return NextResponse.json({ planAsignado }, { status: 200 })
+    // Obtener los invoiceTypes de facturas pagadas vinculadas al proyecto
+    const facturasPagadas = await Invoice.find({
+      projectId: id,
+      status: 'pagado',
+    }).select('invoiceType').lean()
+    const invoiceTypesPagados = facturasPagadas.map((f) => f.invoiceType)
+
+    return NextResponse.json({ planAsignado, invoiceTypesPagados }, { status: 200 })
   } catch (error) {
     console.error('[GET /api/proyectos/[id]/plan]', error)
     return NextResponse.json({ error: 'Error al obtener el plan.' }, { status: 500 })

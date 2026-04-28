@@ -3,6 +3,7 @@ import dbConnect from '@/lib/db';
 import { getAdminFromToken } from '@/lib/helpers/getAdminFromToken';
 import { sendNotification } from '@/lib/helpers/sendNotification';
 import { sendEmail } from '@/lib/auth/sendEmail';
+import { syncPlanAsignado } from '@/lib/helpers/processPayment';
 import Invoice from '@/lib/models/Invoice';
 import User from '@/lib/models/User';
 import mongoose from 'mongoose';
@@ -47,6 +48,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (status === 'pagado' && !invoice.paidAt) invoice.paidAt = new Date();
 
   await invoice.save();
+
+  // Sincronizar PlanAsignado si se confirma el pago manualmente
+  if (status === 'pagado' && prevStatus !== 'pagado') {
+    await syncPlanAsignado(id)
+  }
 
   // Notificar al cliente si se registra pago
   if (status === 'pagado' && prevStatus !== 'pagado') {
