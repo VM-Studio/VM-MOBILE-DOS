@@ -101,6 +101,16 @@ export default function AdminProyectoDetailPage() {
     montoPagado: number; fechaUltimoPago?: string | null; notasPago?: string | null
     historialPagos: { _id: string; monto: number; fecha: string; nota?: string }[]
   }
+
+  // Mantenimiento
+  interface CobroHistorial { _id: string; fecha: string; monto: number; estado: string; nota?: string }
+  interface MantenimientoData {
+    _id: string; tipo: string; estado: string; precioMensual: number
+    fechaSolicitud: string; fechaAprobacion?: string | null; fechaInicio?: string | null
+    fechaProximoCobro?: string | null; fechaCancelacion?: string | null
+    motivoCancelacion?: string | null; notaCliente?: string | null; notaAdmin?: string | null
+    cobrosRealizados: number; historialCobros: CobroHistorial[]
+  }
   const [planAsignado, setPlanAsignado] = useState<PlanAsignadoData | null>(null)
   const [loadingPlan, setLoadingPlan] = useState(false)
   // Edit plan asignado
@@ -110,6 +120,15 @@ export default function AdminProyectoDetailPage() {
   // Registrar pago
   const [pagoForm, setPagoForm] = useState({ monto: '', fecha: '', nota: '' })
   const [savingPago, setSavingPago] = useState(false)
+
+  // Mantenimiento
+  const [mantenimiento, setMantenimiento] = useState<MantenimientoData | null>(null)
+  const [loadingMant, setLoadingMant] = useState(false)
+  const [mantAccion, setMantAccion] = useState('')
+  const [mantNota, setMantNota] = useState('')
+  const [savingMant, setSavingMant] = useState(false)
+  const [cobroNota, setCobroNota] = useState('')
+  const [savingCobro, setSavingCobro] = useState(false)
 
   const fetchPlan = async () => {
     if (!id) return
@@ -182,6 +201,49 @@ export default function AdminProyectoDetailPage() {
   }, [id])
 
   useEffect(() => { fetchPlan() }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fetchMantenimiento = async () => {
+    if (!id) return
+    setLoadingMant(true)
+    const t = localStorage.getItem('vm_token') || ''
+    const res = await fetch(`/api/proyectos/${id}/mantenimiento`, { headers: { Authorization: `Bearer ${t}` } })
+    if (res.ok) {
+      const data = await res.json()
+      setMantenimiento(data.mantenimiento ?? null)
+    }
+    setLoadingMant(false)
+  }
+
+  useEffect(() => { fetchMantenimiento() }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleMantAccion = async (accion: string) => {
+    if (!id) return
+    setSavingMant(true)
+    const t = localStorage.getItem('vm_token') || ''
+    await fetch(`/api/proyectos/${id}/mantenimiento`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+      body: JSON.stringify({ accion, notaAdmin: mantNota || undefined }),
+    })
+    setMantNota('')
+    setMantAccion('')
+    await fetchMantenimiento()
+    setSavingMant(false)
+  }
+
+  const handleRegistrarCobro = async () => {
+    if (!id) return
+    setSavingCobro(true)
+    const t = localStorage.getItem('vm_token') || ''
+    await fetch(`/api/proyectos/${id}/mantenimiento/registrar-cobro`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+      body: JSON.stringify({ nota: cobroNota || undefined }),
+    })
+    setCobroNota('')
+    await fetchMantenimiento()
+    setSavingCobro(false)
+  }
 
   const postAction = async (body: object) => {
     const res = await fetch(`/api/admin/projects/${id}`, {
@@ -781,6 +843,204 @@ export default function AdminProyectoDetailPage() {
                     <div key={i} className="flex items-start gap-2">
                       <span className="text-blue-500 text-xs mt-0.5 shrink-0">✓</span>
                       <span className="text-xs text-gray-600">{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════ */}
+      {/* [ MANTENIMIENTO ] */}
+      <div className="space-y-4">
+        <div>
+          <span className="text-[11px] font-medium tracking-[0.2em] text-gray-400 uppercase">[ MANTENIMIENTO ]</span>
+        </div>
+
+        {loadingMant ? (
+          <div className="bg-white border border-gray-200 p-6 text-sm text-gray-400">Cargando...</div>
+        ) : !mantenimiento ? (
+          <div className="bg-white border border-gray-200 p-6">
+            <p className="text-sm text-gray-400 font-light">
+              {project.status !== 'completado'
+                ? 'El proyecto aún no está completado. El cliente podrá solicitar mantenimiento una vez que finalice.'
+                : 'No hay solicitud de mantenimiento activa para este proyecto.'}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Card estado */}
+            <div className="bg-white border border-gray-200 p-6 space-y-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div>
+                  <p className="text-[10px] tracking-wider text-gray-400 uppercase">Estado</p>
+                  <span className={`inline-block mt-1 text-xs px-2 py-0.5 font-medium ${
+                    mantenimiento.estado === 'activo' ? 'bg-green-100 text-green-700' :
+                    mantenimiento.estado === 'pendiente_aprobacion' ? 'bg-amber-100 text-amber-700' :
+                    mantenimiento.estado === 'pausado' ? 'bg-gray-100 text-gray-600' : 'bg-red-100 text-red-600'
+                  }`}>
+                    {mantenimiento.estado === 'pendiente_aprobacion' ? 'Pendiente' :
+                     mantenimiento.estado === 'activo' ? 'Activo' :
+                     mantenimiento.estado === 'pausado' ? 'Pausado' : 'Cancelado'}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-[10px] tracking-wider text-gray-400 uppercase">Tipo</p>
+                  <p className="text-sm text-gray-700 mt-1">{mantenimiento.tipo === 'mensual_recurrente' ? 'Mensual recurrente' : 'Puntual'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] tracking-wider text-gray-400 uppercase">Precio/mes</p>
+                  <p className="text-sm font-medium text-gray-900 mt-1">${mantenimiento.precioMensual.toLocaleString('es-AR')} ARS</p>
+                </div>
+                <div>
+                  <p className="text-[10px] tracking-wider text-gray-400 uppercase">Cobros</p>
+                  <p className="text-sm text-gray-700 mt-1">{mantenimiento.cobrosRealizados}</p>
+                </div>
+              </div>
+
+              {mantenimiento.estado === 'activo' && mantenimiento.fechaProximoCobro && (
+                <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 px-4 py-2.5">
+                  <span className="text-blue-500 text-sm">📅</span>
+                  <p className="text-sm text-blue-700">Próximo cobro: <strong>{new Date(mantenimiento.fechaProximoCobro).toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })}</strong></p>
+                </div>
+              )}
+
+              {mantenimiento.notaCliente && (
+                <div className="bg-gray-50 border border-gray-100 px-4 py-3">
+                  <p className="text-[10px] tracking-wider text-gray-400 uppercase mb-1">Nota del cliente</p>
+                  <p className="text-sm text-gray-600 font-light">{mantenimiento.notaCliente}</p>
+                </div>
+              )}
+
+              {/* Acciones admin */}
+              <div className="border-t border-gray-100 pt-4 space-y-3">
+                <p className="text-[10px] font-medium tracking-wider text-gray-400 uppercase">Acciones</p>
+                <div className="flex flex-wrap gap-2">
+                  {mantenimiento.estado === 'pendiente_aprobacion' && (
+                    <button
+                      onClick={() => setMantAccion(mantAccion === 'aprobar' ? '' : 'aprobar')}
+                      className="px-3 py-1.5 text-xs bg-green-600 text-white hover:bg-green-700 transition-colors"
+                    >
+                      Aprobar solicitud
+                    </button>
+                  )}
+                  {mantenimiento.estado === 'activo' && (
+                    <>
+                      <button
+                        onClick={() => setMantAccion(mantAccion === 'registrar_cobro' ? '' : 'registrar_cobro')}
+                        className="px-3 py-1.5 text-xs bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                      >
+                        + Registrar cobro
+                      </button>
+                      <button
+                        onClick={() => setMantAccion(mantAccion === 'pausar' ? '' : 'pausar')}
+                        className="px-3 py-1.5 text-xs border border-amber-400 text-amber-600 hover:bg-amber-50 transition-colors"
+                      >
+                        Pausar
+                      </button>
+                    </>
+                  )}
+                  {mantenimiento.estado === 'pausado' && (
+                    <button
+                      onClick={() => setMantAccion(mantAccion === 'reanudar' ? '' : 'reanudar')}
+                      className="px-3 py-1.5 text-xs bg-green-600 text-white hover:bg-green-700 transition-colors"
+                    >
+                      Reanudar
+                    </button>
+                  )}
+                  {(mantenimiento.estado === 'activo' || mantenimiento.estado === 'pausado' || mantenimiento.estado === 'pendiente_aprobacion') && (
+                    <button
+                      onClick={() => setMantAccion(mantAccion === 'cancelar' ? '' : 'cancelar')}
+                      className="px-3 py-1.5 text-xs border border-red-300 text-red-500 hover:bg-red-50 transition-colors"
+                    >
+                      Cancelar servicio
+                    </button>
+                  )}
+                </div>
+
+                {/* Panel registrar cobro */}
+                {mantAccion === 'registrar_cobro' && (
+                  <div className="flex items-end gap-3 border border-blue-100 bg-blue-50 p-4">
+                    <div className="flex-1">
+                      <label className="block text-xs text-gray-600 mb-1">Nota del cobro (opcional)</label>
+                      <input
+                        type="text"
+                        value={cobroNota}
+                        onChange={(e) => setCobroNota(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 text-sm text-gray-900 focus:outline-none focus:border-blue-400 bg-white"
+                        placeholder="Ej: Transferencia bancaria"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => setMantAccion('')} className="px-3 py-2 border border-gray-300 text-xs text-gray-600 hover:bg-gray-50">
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={handleRegistrarCobro}
+                        disabled={savingCobro}
+                        className="px-3 py-2 bg-blue-600 text-white text-xs hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {savingCobro ? 'Registrando...' : `Confirmar $${mantenimiento.precioMensual.toLocaleString('es-AR')}`}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Panel aprobar / pausar / reanudar / cancelar */}
+                {['aprobar', 'pausar', 'reanudar', 'cancelar'].includes(mantAccion) && (
+                  <div className={`border p-4 space-y-3 ${mantAccion === 'cancelar' ? 'border-red-200 bg-red-50' : 'border-green-100 bg-green-50'}`}>
+                    <p className="text-sm font-medium text-gray-700">
+                      {mantAccion === 'aprobar' && '¿Aprobar la solicitud de mantenimiento?'}
+                      {mantAccion === 'pausar' && '¿Pausar el servicio de mantenimiento?'}
+                      {mantAccion === 'reanudar' && '¿Reanudar el servicio de mantenimiento?'}
+                      {mantAccion === 'cancelar' && '¿Cancelar definitivamente el servicio?'}
+                    </p>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Nota interna (opcional)</label>
+                      <input
+                        type="text"
+                        value={mantNota}
+                        onChange={(e) => setMantNota(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 text-sm text-gray-900 focus:outline-none focus:border-blue-400 bg-white"
+                        placeholder="Motivo o nota..."
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => setMantAccion('')} className="px-3 py-2 border border-gray-300 text-xs text-gray-600 hover:bg-gray-50">
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={() => handleMantAccion(mantAccion)}
+                        disabled={savingMant}
+                        className={`px-4 py-2 text-xs text-white font-medium disabled:opacity-50 ${mantAccion === 'cancelar' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}
+                      >
+                        {savingMant ? 'Guardando...' : 'Confirmar'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Historial de cobros */}
+            {mantenimiento.historialCobros.length > 0 && (
+              <div className="bg-white border border-gray-200 p-5 space-y-3">
+                <p className="text-[10px] font-medium tracking-wider text-gray-400 uppercase">Historial de cobros</p>
+                <div className="space-y-2">
+                  {[...mantenimiento.historialCobros].reverse().map((cobro, i) => (
+                    <div key={i} className="flex items-center justify-between text-xs border-b border-gray-100 pb-1.5 last:border-0">
+                      <div>
+                        <span className="text-gray-700">{new Date(cobro.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                        {cobro.nota && <span className="text-gray-400 ml-2">— {cobro.nota}</span>}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-gray-900">${cobro.monto.toLocaleString('es-AR')} ARS</span>
+                        <span className={`px-1.5 py-0.5 ${cobro.estado === 'cobrado' ? 'bg-green-100 text-green-700' : cobro.estado === 'fallido' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-700'}`}>
+                          {cobro.estado}
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>
