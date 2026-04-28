@@ -90,6 +90,81 @@ export default function AdminProyectoDetailPage() {
   const [projectInvoices, setProjectInvoices] = useState<ProjectInvoice[]>([])
   const [loadingInvoices, setLoadingInvoices] = useState(false)
 
+  // Plan asignado
+  interface PlanData {
+    _id: string; nombre: string; descripcion: string; precio: number
+    mantenimientoPrecio?: number | null; mantenimientoObligatorio: boolean; incluye: string[]
+  }
+  interface PlanAsignadoData {
+    _id: string; planId: PlanData; precioAcordado: number; mantenimientoActivo: boolean
+    mantenimientoPrecioAcordado?: number | null; estadoPago: string
+    montoPagado: number; fechaUltimoPago?: string | null; notasPago?: string | null
+    historialPagos: { _id: string; monto: number; fecha: string; nota?: string }[]
+  }
+  const [planAsignado, setPlanAsignado] = useState<PlanAsignadoData | null>(null)
+  const [loadingPlan, setLoadingPlan] = useState(false)
+  // Edit plan asignado
+  const [editPlanOpen, setEditPlanOpen] = useState(false)
+  const [planEditForm, setPlanEditForm] = useState({ estadoPago: 'pendiente', montoPagado: '', notasPago: '', fechaUltimoPago: '' })
+  const [savingPlan, setSavingPlan] = useState(false)
+  // Registrar pago
+  const [pagoForm, setPagoForm] = useState({ monto: '', fecha: '', nota: '' })
+  const [savingPago, setSavingPago] = useState(false)
+
+  const fetchPlan = async () => {
+    if (!id) return
+    setLoadingPlan(true)
+    const t = localStorage.getItem('vm_token') || ''
+    const res = await fetch(`/api/proyectos/${id}/plan`, { headers: { Authorization: `Bearer ${t}` } })
+    if (res.ok) {
+      const data = await res.json()
+      setPlanAsignado(data.planAsignado)
+      if (data.planAsignado) {
+        setPlanEditForm({
+          estadoPago: data.planAsignado.estadoPago,
+          montoPagado: String(data.planAsignado.montoPagado),
+          notasPago: data.planAsignado.notasPago ?? '',
+          fechaUltimoPago: data.planAsignado.fechaUltimoPago ? data.planAsignado.fechaUltimoPago.split('T')[0] : '',
+        })
+      }
+    }
+    setLoadingPlan(false)
+  }
+
+  const handleSavePlanEdit = async () => {
+    if (!id) return
+    setSavingPlan(true)
+    const t = localStorage.getItem('vm_token') || ''
+    await fetch(`/api/proyectos/${id}/plan`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+      body: JSON.stringify({
+        estadoPago: planEditForm.estadoPago,
+        montoPagado: planEditForm.montoPagado ? parseFloat(planEditForm.montoPagado) : undefined,
+        notasPago: planEditForm.notasPago || null,
+        fechaUltimoPago: planEditForm.fechaUltimoPago || null,
+      }),
+    })
+    await fetchPlan()
+    setEditPlanOpen(false)
+    setSavingPlan(false)
+  }
+
+  const handleRegistrarPago = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!pagoForm.monto || parseFloat(pagoForm.monto) <= 0) return
+    setSavingPago(true)
+    const t = localStorage.getItem('vm_token') || ''
+    await fetch(`/api/proyectos/${id}/plan/registrar-pago`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+      body: JSON.stringify({ monto: parseFloat(pagoForm.monto), fecha: pagoForm.fecha || undefined, nota: pagoForm.nota || undefined }),
+    })
+    setPagoForm({ monto: '', fecha: '', nota: '' })
+    await fetchPlan()
+    setSavingPago(false)
+  }
+
   useEffect(() => {
     if (project) setStatusVal(project.status)
   }, [project])
@@ -105,6 +180,8 @@ export default function AdminProyectoDetailPage() {
       .then((d) => setProjectInvoices(d.invoices || []))
       .finally(() => setLoadingInvoices(false))
   }, [id])
+
+  useEffect(() => { fetchPlan() }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const postAction = async (body: object) => {
     const res = await fetch(`/api/admin/projects/${id}`, {
@@ -482,6 +559,233 @@ export default function AdminProyectoDetailPage() {
                 </div>
               )
             })}
+          </div>
+        )}
+      </div>
+
+      {/* ── PLAN Y FACTURACIÓN ─────────────────────────────── */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-medium tracking-[0.2em] text-gray-400 uppercase">[ PLAN Y FACTURACIÓN ]</span>
+          {planAsignado && !editPlanOpen && (
+            <button onClick={() => setEditPlanOpen(true)} className="text-xs text-blue-600 hover:underline">Editar estado</button>
+          )}
+          {planAsignado && editPlanOpen && (
+            <button onClick={() => setEditPlanOpen(false)} className="text-xs text-gray-400 hover:underline">Cancelar</button>
+          )}
+        </div>
+
+        {loadingPlan ? (
+          <div className="bg-white border border-gray-200 p-5 text-sm text-gray-400">Cargando plan...</div>
+        ) : !planAsignado ? (
+          <div className="bg-white border border-gray-200 p-5">
+            <p className="text-sm text-gray-400 font-light">No hay plan asignado a este proyecto.</p>
+            <p className="text-xs text-gray-400 mt-1">
+              Podés asignarlo al crear el proyecto o desde{' '}
+              <a href="/admin/planes" className="text-blue-500 hover:underline">Gestión de Planes</a>.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Card del plan */}
+            <div className="bg-white border border-gray-200 p-5 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-medium tracking-wider text-blue-600 uppercase">Plan contratado</p>
+                  <h3 className="text-base font-medium text-gray-900 mt-0.5">{planAsignado.planId.nombre}</h3>
+                  <p className="text-sm text-gray-500 font-light mt-0.5">{planAsignado.planId.descripcion}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-lg font-light text-gray-900">${planAsignado.precioAcordado.toLocaleString('es-AR')}</p>
+                  <p className="text-[10px] text-gray-400">Pago único</p>
+                </div>
+              </div>
+
+              {/* Estado de pago */}
+              <div className="border-t border-gray-100 pt-3">
+                {planAsignado.estadoPago === 'pago_total' && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-green-600 text-sm font-medium">✓ Pago completo</span>
+                    <span className="text-sm text-gray-500">${planAsignado.montoPagado.toLocaleString('es-AR')} ARS</span>
+                  </div>
+                )}
+                {planAsignado.estadoPago === 'pago_parcial' && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <span>Pago parcial</span>
+                      <span>${planAsignado.montoPagado.toLocaleString('es-AR')} de ${planAsignado.precioAcordado.toLocaleString('es-AR')}</span>
+                    </div>
+                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-amber-400 rounded-full transition-all"
+                        style={{ width: `${Math.min((planAsignado.montoPagado / planAsignado.precioAcordado) * 100, 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-400">Pendiente: ${Math.max(planAsignado.precioAcordado - planAsignado.montoPagado, 0).toLocaleString('es-AR')} ARS</p>
+                  </div>
+                )}
+                {planAsignado.estadoPago === 'pendiente' && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-red-500 text-sm font-medium">Pago pendiente</span>
+                    <span className="text-sm text-gray-500">${planAsignado.precioAcordado.toLocaleString('es-AR')} ARS</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Mantenimiento */}
+              {planAsignado.mantenimientoActivo && (
+                <div className="border-t border-gray-100 pt-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-gray-700">Mantenimiento mensual activo</p>
+                    {planAsignado.planId.mantenimientoObligatorio && (
+                      <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5">Obligatorio</span>
+                    )}
+                  </div>
+                  {planAsignado.mantenimientoPrecioAcordado != null && (
+                    <p className="text-sm font-medium text-gray-900">${planAsignado.mantenimientoPrecioAcordado.toLocaleString('es-AR')}/mes</p>
+                  )}
+                </div>
+              )}
+
+              {/* Notas internas */}
+              {planAsignado.notasPago && (
+                <div className="border-t border-gray-100 pt-3">
+                  <p className="text-[10px] font-medium tracking-wider text-gray-400 uppercase mb-1">Notas internas</p>
+                  <p className="text-xs text-gray-600">{planAsignado.notasPago}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Editar estado de pago */}
+            {editPlanOpen && (
+              <div className="bg-gray-50 border border-gray-200 p-5 space-y-3">
+                <p className="text-xs font-medium text-gray-600">Editar estado de pago</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Estado</label>
+                    <select
+                      value={planEditForm.estadoPago}
+                      onChange={(e) => setPlanEditForm((p) => ({ ...p, estadoPago: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-200 text-sm focus:outline-none focus:border-blue-400"
+                    >
+                      <option value="pendiente">Pendiente</option>
+                      <option value="pago_parcial">Pago parcial</option>
+                      <option value="pago_total">Pago total</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Monto pagado (ARS)</label>
+                    <input
+                      type="number" min="0"
+                      value={planEditForm.montoPagado}
+                      onChange={(e) => setPlanEditForm((p) => ({ ...p, montoPagado: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-200 text-sm focus:outline-none focus:border-blue-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Último pago</label>
+                    <input
+                      type="date"
+                      value={planEditForm.fechaUltimoPago}
+                      onChange={(e) => setPlanEditForm((p) => ({ ...p, fechaUltimoPago: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-200 text-sm focus:outline-none focus:border-blue-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Notas internas</label>
+                    <input
+                      type="text"
+                      value={planEditForm.notasPago}
+                      onChange={(e) => setPlanEditForm((p) => ({ ...p, notasPago: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-200 text-sm focus:outline-none focus:border-blue-400"
+                      placeholder="Notas..."
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={handleSavePlanEdit}
+                  disabled={savingPlan}
+                  className="px-4 py-2 bg-gradient-to-r from-gray-900 to-blue-700 text-white text-sm font-medium tracking-wider hover:shadow-lg transition-all disabled:opacity-50"
+                >
+                  {savingPlan ? 'GUARDANDO...' : 'GUARDAR CAMBIOS'}
+                </button>
+              </div>
+            )}
+
+            {/* Registrar nuevo pago */}
+            <div className="bg-white border border-gray-200 p-5">
+              <p className="text-xs font-medium text-gray-700 mb-3">Registrar nuevo pago</p>
+              <form onSubmit={handleRegistrarPago} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Monto (ARS) *</label>
+                  <input
+                    required type="number" min="1"
+                    value={pagoForm.monto}
+                    onChange={(e) => setPagoForm((p) => ({ ...p, monto: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-200 text-sm focus:outline-none focus:border-blue-400"
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Fecha</label>
+                  <input
+                    type="date"
+                    value={pagoForm.fecha}
+                    onChange={(e) => setPagoForm((p) => ({ ...p, fecha: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-200 text-sm focus:outline-none focus:border-blue-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Nota</label>
+                  <input
+                    type="text"
+                    value={pagoForm.nota}
+                    onChange={(e) => setPagoForm((p) => ({ ...p, nota: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-200 text-sm focus:outline-none focus:border-blue-400"
+                    placeholder="Ej: Transferencia bancaria"
+                  />
+                </div>
+                <div className="sm:col-span-3">
+                  <button
+                    type="submit"
+                    disabled={savingPago}
+                    className="px-4 py-2 bg-gradient-to-r from-gray-900 to-blue-700 text-white text-sm font-medium tracking-wider hover:shadow-lg transition-all disabled:opacity-50"
+                  >
+                    {savingPago ? 'REGISTRANDO...' : '+ REGISTRAR PAGO'}
+                  </button>
+                </div>
+              </form>
+
+              {/* Historial de pagos */}
+              {planAsignado.historialPagos.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <p className="text-[10px] font-medium tracking-wider text-gray-400 uppercase mb-2">Historial de pagos</p>
+                  <div className="space-y-1.5">
+                    {[...planAsignado.historialPagos].reverse().map((pago) => (
+                      <div key={pago._id} className="flex items-center justify-between text-xs text-gray-600">
+                        <span>${pago.monto.toLocaleString('es-AR')} ARS {pago.nota && `— ${pago.nota}`}</span>
+                        <span className="text-gray-400">{new Date(pago.fecha).toLocaleDateString('es-AR')}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Lista de incluidos del plan */}
+            {planAsignado.planId.incluye.length > 0 && (
+              <div className="bg-white border border-gray-200 p-5">
+                <p className="text-[10px] font-medium tracking-wider text-gray-400 uppercase mb-3">Qué incluye el plan</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  {planAsignado.planId.incluye.map((item: string, i: number) => (
+                    <div key={i} className="flex items-start gap-2">
+                      <span className="text-blue-500 text-xs mt-0.5 shrink-0">✓</span>
+                      <span className="text-xs text-gray-600">{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

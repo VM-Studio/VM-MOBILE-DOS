@@ -16,6 +16,15 @@ interface StageForm {
   requiresApproval: boolean
 }
 
+interface Plan {
+  _id: string
+  nombre: string
+  descripcion: string
+  precio: number
+  mantenimientoPrecio?: number | null
+  mantenimientoObligatorio: boolean
+}
+
 export default function NuevoProyectoPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -36,12 +45,48 @@ export default function NuevoProyectoPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
+  // Plan
+  const [planes, setPlanes] = useState<Plan[]>([])
+  const [planForm, setPlanForm] = useState({
+    planId: '',
+    precioAcordado: '',
+    mantenimientoActivo: false,
+    mantenimientoPrecioAcordado: '',
+    estadoPago: 'pendiente',
+    montoPagado: '',
+    fechaUltimoPago: '',
+    notasPago: '',
+  })
+
   useEffect(() => {
     const token = localStorage.getItem('vm_token')
     fetch('/api/admin/clients?limit=100', { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
       .then((d) => setClients(d.clients || []))
+    fetch('/api/planes?all=true', { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.json())
+      .then((d) => setPlanes(d.planes?.filter((p: Plan & { activo: boolean }) => p.activo) || []))
   }, [])
+
+  // Al seleccionar un plan, pre-completar el precio acordado
+  useEffect(() => {
+    if (!planForm.planId) return
+    const plan = planes.find((p) => p._id === planForm.planId)
+    if (!plan) return
+    setPlanForm((prev) => ({
+      ...prev,
+      precioAcordado: String(plan.precio),
+      mantenimientoActivo: plan.mantenimientoObligatorio ? true : prev.mantenimientoActivo,
+      mantenimientoPrecioAcordado: plan.mantenimientoPrecio != null ? String(plan.mantenimientoPrecio) : '',
+    }))
+  }, [planForm.planId, planes])
+
+  // Si pago total, monto = precio acordado
+  useEffect(() => {
+    if (planForm.estadoPago === 'pago_total') {
+      setPlanForm((prev) => ({ ...prev, montoPagado: prev.precioAcordado }))
+    }
+  }, [planForm.estadoPago, planForm.precioAcordado])
 
   const addStage = () => setStages((prev) => [...prev, { name: '', description: '', requiresApproval: false }])
   const removeStage = (i: number) => setStages((prev) => prev.filter((_, idx) => idx !== i))
@@ -55,6 +100,8 @@ export default function NuevoProyectoPage() {
     setSaving(true)
     setError('')
     const token = localStorage.getItem('vm_token')
+
+    // 1. Crear proyecto
     const res = await fetch('/api/admin/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -66,7 +113,29 @@ export default function NuevoProyectoPage() {
     })
     const data = await res.json()
     if (!res.ok) { setError(data.error || 'Error al crear proyecto'); setSaving(false); return }
-    router.replace(`/admin/proyectos/${data.project._id}`)
+
+    const projectId = data.project._id
+
+    // 2. Asignar plan si se seleccionó uno
+    if (planForm.planId && planForm.precioAcordado) {
+      const planPayload = {
+        planId: planForm.planId,
+        precioAcordado: parseFloat(planForm.precioAcordado),
+        mantenimientoActivo: planForm.mantenimientoActivo,
+        mantenimientoPrecioAcordado: planForm.mantenimientoPrecioAcordado ? parseFloat(planForm.mantenimientoPrecioAcordado) : null,
+        estadoPago: planForm.estadoPago,
+        montoPagado: planForm.montoPagado ? parseFloat(planForm.montoPagado) : 0,
+        fechaUltimoPago: planForm.fechaUltimoPago || null,
+        notasPago: planForm.notasPago || null,
+      }
+      await fetch(`/api/proyectos/${projectId}/plan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(planPayload),
+      })
+    }
+
+    router.replace(`/admin/proyectos/${projectId}`)
   }
 
   return (
@@ -255,6 +324,122 @@ export default function NuevoProyectoPage() {
               </label>
             </div>
           ))}
+        </div>
+
+        {/* Actions */}
+        {/* Plan contratado */}
+        <div className="bg-white border border-gray-200 p-6 space-y-4">
+          <h2 className="text-sm font-medium text-gray-900">Plan contratado <span className="text-gray-400 font-light">(opcional)</span></h2>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Seleccionar plan</label>
+            <select
+              value={planForm.planId}
+              onChange={(e) => setPlanForm((p) => ({ ...p, planId: e.target.value }))}
+              className="w-full px-3 py-2.5 border border-gray-200 text-sm text-gray-900 focus:outline-none focus:border-blue-400 transition-colors"
+            >
+              <option value="">Sin plan asignado</option>
+              {planes.map((plan) => (
+                <option key={plan._id} value={plan._id}>
+                  {plan.nombre} — ${plan.precio.toLocaleString('es-AR')} ARS
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {planForm.planId && (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Precio acordado (ARS) *</label>
+                  <input
+                    type="number" min="0"
+                    value={planForm.precioAcordado}
+                    onChange={(e) => setPlanForm((p) => ({ ...p, precioAcordado: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-200 text-sm text-gray-900 focus:outline-none focus:border-blue-400 transition-colors"
+                    placeholder="0"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-0.5">Podés modificar el precio base si hubo un acuerdo especial.</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Estado de pago</label>
+                  <select
+                    value={planForm.estadoPago}
+                    onChange={(e) => setPlanForm((p) => ({ ...p, estadoPago: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-200 text-sm text-gray-900 focus:outline-none focus:border-blue-400 transition-colors"
+                  >
+                    <option value="pendiente">Pendiente de pago</option>
+                    <option value="pago_parcial">Pago parcial</option>
+                    <option value="pago_total">Pago total</option>
+                  </select>
+                </div>
+              </div>
+
+              {planForm.estadoPago === 'pago_parcial' && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Monto pagado hasta ahora (ARS)</label>
+                  <input
+                    type="number" min="0"
+                    value={planForm.montoPagado}
+                    onChange={(e) => setPlanForm((p) => ({ ...p, montoPagado: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-200 text-sm text-gray-900 focus:outline-none focus:border-blue-400 transition-colors"
+                    placeholder="0"
+                  />
+                </div>
+              )}
+
+              {(planForm.estadoPago === 'pago_parcial' || planForm.estadoPago === 'pago_total') && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Fecha del último pago</label>
+                  <input
+                    type="date"
+                    value={planForm.fechaUltimoPago}
+                    onChange={(e) => setPlanForm((p) => ({ ...p, fechaUltimoPago: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-200 text-sm text-gray-900 focus:outline-none focus:border-blue-400 transition-colors"
+                  />
+                </div>
+              )}
+
+              <div className="border-t border-gray-100 pt-4 space-y-3">
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={planForm.mantenimientoActivo}
+                    disabled={planes.find((p) => p._id === planForm.planId)?.mantenimientoObligatorio}
+                    onChange={(e) => setPlanForm((p) => ({ ...p, mantenimientoActivo: e.target.checked }))}
+                  />
+                  Incluye mantenimiento mensual
+                  {planes.find((p) => p._id === planForm.planId)?.mantenimientoObligatorio && (
+                    <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5">Obligatorio</span>
+                  )}
+                </label>
+
+                {planForm.mantenimientoActivo && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Precio mantenimiento acordado (ARS/mes)</label>
+                    <input
+                      type="number" min="0"
+                      value={planForm.mantenimientoPrecioAcordado}
+                      onChange={(e) => setPlanForm((p) => ({ ...p, mantenimientoPrecioAcordado: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-200 text-sm text-gray-900 focus:outline-none focus:border-blue-400 transition-colors"
+                      placeholder="0"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Notas de pago internas (opcional)</label>
+                <textarea
+                  rows={2}
+                  value={planForm.notasPago}
+                  onChange={(e) => setPlanForm((p) => ({ ...p, notasPago: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-200 text-sm text-gray-900 focus:outline-none focus:border-blue-400 transition-colors resize-none"
+                  placeholder="Notas internas sobre el pago..."
+                />
+              </div>
+            </>
+          )}
         </div>
 
         {/* Actions */}
