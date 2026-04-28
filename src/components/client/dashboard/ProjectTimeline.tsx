@@ -105,114 +105,73 @@ const STATUS_SORT_PRIORITY: Record<string, number> = {
 }
 
 // ─── StageNode ────────────────────────────────────────────────────────────────
-function StageNode({ stage, isLast, nextLineColor }: {
+// ─── StageNode ────────────────────────────────────────────────────────────────
+function StageNode({ stage, isLast, nextLineColor, isSelected, onSelect }: {
   stage: Stage
   isLast: boolean
   nextLineColor: string
+  isSelected: boolean
+  onSelect: (id: string | null) => void
 }) {
-  const [expanded, setExpanded] = useState(false)
   const cfg = STAGE_CONFIG[stage.status] ?? STAGE_CONFIG.pendiente
   const keyword = getKeyword(stage.name)
   const hasMore = stage.name.trim().length > 15
 
-  const dotColor =
-    stage.status === 'completado' ? 'bg-[#2563EB]' :
-    stage.status === 'en_revision' ? 'bg-amber-400' :
-    stage.status === 'en_progreso' ? 'bg-blue-400' :
-    stage.status === 'rechazado'   ? 'bg-red-400'   : 'bg-gray-300'
-
   return (
     <div className="flex items-start">
       {/* Nodo */}
-      <div
-        className={`
-          flex flex-col items-center transition-all duration-300 ease-in-out
-          ${expanded
-            ? 'bg-white border border-gray-100 shadow-md rounded-xl px-3 py-2.5'
-            : 'px-0 py-0'
-          }
-        `}
-        style={{ minWidth: expanded ? 140 : 56 }}
-      >
-        {/* Fila: círculo + (cuando expandido) estado label */}
-        <div className={`flex items-center gap-2 ${expanded ? 'self-start w-full' : 'flex-col'}`}>
-          {/* Círculo */}
-          <div className={`
-            flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center
-            transition-all duration-200
-            ${stage.status === 'completado' || stage.status === 'en_progreso'
-              ? 'bg-gradient-to-br from-[#0F172A] to-[#2563EB]'
-              : cfg.bg
-            }
-          `}>
-            {stage.status === 'en_progreso' ? (
-              <span className="w-1.5 h-1.5 rounded-full bg-white block animate-pulse" />
-            ) : stage.status === 'pendiente' ? (
-              <span className="w-1 h-1 rounded-full bg-gray-400 block" />
-            ) : (
-              <span className={`text-[8px] font-bold leading-none ${cfg.textColor}`}>
-                {cfg.icon}
-              </span>
-            )}
-          </div>
+      <div className="flex flex-col items-center" style={{ minWidth: 52 }}>
 
-          {/* Estado label — solo cuando expandido */}
-          {expanded && (
-            <div className="flex items-center gap-1 min-w-0">
-              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dotColor}`} />
-              <span className="text-[8px] uppercase tracking-widest text-gray-400 font-medium truncate">
-                {stage.status.replace('_', ' ')}
-              </span>
-            </div>
+        {/* Círculo */}
+        <div className={`
+          w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0
+          transition-all duration-200
+          ${stage.status === 'completado' || stage.status === 'en_progreso'
+            ? 'bg-gradient-to-br from-[#0F172A] to-[#2563EB]'
+            : cfg.bg
+          }
+        `}>
+          {stage.status === 'en_progreso' ? (
+            <span className="w-1.5 h-1.5 rounded-full bg-white block animate-pulse" />
+          ) : stage.status === 'pendiente' ? (
+            <span className="w-1 h-1 rounded-full bg-gray-400 block" />
+          ) : (
+            <span className={`text-[8px] font-bold leading-none ${cfg.textColor}`}>
+              {cfg.icon}
+            </span>
           )}
         </div>
 
-        {/* Collapsed: keyword */}
-        {!expanded && (
-          <p className={`text-center mt-1 text-[9px] font-semibold leading-tight max-w-[52px] tracking-wide ${cfg.labelColor}`}>
-            {keyword}
-          </p>
-        )}
+        {/* Keyword */}
+        <p className={`text-center mt-1 text-[9px] font-semibold leading-tight max-w-[48px] tracking-wide ${
+          isSelected ? 'text-[#2563EB]' : cfg.labelColor
+        }`}>
+          {keyword}
+        </p>
 
-        {/* Expanded: nombre completo */}
-        {expanded && (
-          <p className="mt-2 text-[11px] text-gray-700 leading-relaxed font-medium self-start">
-            {stage.name}
-          </p>
-        )}
-
-        {/* Fecha — solo cuando expandido */}
-        {expanded && stage.completedAt && (
-          <p className="mt-1.5 text-[9px] text-gray-400 self-start border-t border-gray-100 pt-1.5 w-full">
-            Completado el {format(new Date(stage.completedAt), 'dd/MM/yyyy')}
-          </p>
-        )}
-
-        {/* Fecha colapsada debajo del keyword */}
-        {!expanded && stage.completedAt && (
+        {/* Fecha colapsada */}
+        {stage.completedAt && (
           <p className="text-[8px] text-gray-300 mt-0.5 text-center">
             {format(new Date(stage.completedAt), 'dd/MM')}
           </p>
         )}
 
-        {/* Botón ver más / cerrar */}
+        {/* Botón VER MÁS */}
         {hasMore && (
           <button
-            onClick={() => setExpanded(v => !v)}
-            className={`mt-1 text-[8px] leading-tight transition-colors ${
-              expanded
-                ? 'text-[#2563EB] self-end'
-                : 'text-gray-300 hover:text-gray-500'
+            onClick={() => onSelect(isSelected ? null : stage._id)}
+            className={`mt-1 text-[8px] font-semibold tracking-widest leading-tight transition-colors uppercase ${
+              isSelected ? 'text-[#2563EB]' : 'text-gray-300 hover:text-gray-500'
             }`}
           >
-            {expanded ? '▲ cerrar' : '▼'}
+            {isSelected ? 'CERRAR' : 'VER MÁS'}
           </button>
         )}
       </div>
 
       {/* Línea conectora */}
       {!isLast && (
-        <div className="flex items-center flex-shrink-0" style={{ marginTop: 11 }}>
+        <div className="flex items-center flex-shrink-0" style={{ marginTop: 9 }}>
           <div className="h-px w-5 transition-colors duration-300" style={{ backgroundColor: nextLineColor }} />
         </div>
       )}
@@ -225,6 +184,7 @@ export default function ProjectTimeline({ project, onRefresh }: { project: Proje
   const [rejectStageId, setRejectStageId] = useState<string | null>(null)
   const [rejectComment, setRejectComment] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
+  const [selectedStageId, setSelectedStageId] = useState<string | null>(null)
 
   const badge = STATUS_BADGE[project.status] ?? STATUS_BADGE.en_progreso
 
@@ -315,24 +275,66 @@ export default function ProjectTimeline({ project, onRefresh }: { project: Proje
 
       {/* ── Timeline de etapas ── */}
       {stages.length > 0 && (
-        <div className="mb-5 overflow-x-auto pb-2">
-          <div className="flex items-start min-w-max">
-            {stages.map((stage, index) => {
-              const isLast = index === stages.length - 1
-              const nextStage = stages[index + 1]
-              const nextLineColor = nextStage
-                ? (STAGE_CONFIG[nextStage.status]?.lineColor ?? '#E5E7EB')
-                : '#E5E7EB'
-              return (
-                <StageNode
-                  key={stage._id}
-                  stage={stage}
-                  isLast={isLast}
-                  nextLineColor={nextLineColor}
-                />
-              )
-            })}
+        <div className="mb-5">
+          <div className="overflow-x-auto pb-2">
+            <div className="flex items-start min-w-max">
+              {stages.map((stage, index) => {
+                const isLast = index === stages.length - 1
+                const nextStage = stages[index + 1]
+                const nextLineColor = nextStage
+                  ? (STAGE_CONFIG[nextStage.status]?.lineColor ?? '#E5E7EB')
+                  : '#E5E7EB'
+                return (
+                  <StageNode
+                    key={stage._id}
+                    stage={stage}
+                    isLast={isLast}
+                    nextLineColor={nextLineColor}
+                    isSelected={selectedStageId === stage._id}
+                    onSelect={setSelectedStageId}
+                  />
+                )
+              })}
+            </div>
           </div>
+
+          {/* Panel detalle — se expande dentro de la tarjeta */}
+          {selectedStageId && (() => {
+            const sel = stages.find(s => s._id === selectedStageId)
+            if (!sel) return null
+            const cfg = STAGE_CONFIG[sel.status] ?? STAGE_CONFIG.pendiente
+            const dotColor =
+              sel.status === 'completado' ? 'bg-[#2563EB]' :
+              sel.status === 'en_revision' ? 'bg-amber-400' :
+              sel.status === 'en_progreso' ? 'bg-blue-400' :
+              sel.status === 'rechazado'   ? 'bg-red-400'   : 'bg-gray-300'
+            return (
+              <div className="mt-2 border border-gray-100 rounded-lg p-3 bg-gray-50 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dotColor}`} />
+                    <span className="text-[8px] uppercase tracking-widest text-gray-400 font-semibold">
+                      {sel.status.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setSelectedStageId(null)}
+                    className="text-[9px] font-semibold tracking-widest text-gray-400 hover:text-gray-600 uppercase transition-colors"
+                  >
+                    CERRAR
+                  </button>
+                </div>
+                <p className={`text-[12px] font-medium leading-relaxed ${cfg.labelColor}`}>
+                  {sel.name}
+                </p>
+                {sel.completedAt && (
+                  <p className="text-[9px] text-gray-400 mt-1.5 pt-1.5 border-t border-gray-200">
+                    Completado el {format(new Date(sel.completedAt), 'dd/MM/yyyy')}
+                  </p>
+                )}
+              </div>
+            )
+          })()}
         </div>
       )}
 
