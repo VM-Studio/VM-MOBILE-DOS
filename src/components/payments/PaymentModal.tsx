@@ -79,6 +79,7 @@ export default function PaymentModal({
                   <p className="text-xs text-gray-500 font-light">
                     Tarjeta de crédito / débito · Cuotas · Dinero en cuenta
                   </p>
+                  <p className="text-xs text-amber-600 font-medium mt-0.5">+ 5% de recargo por uso de plataforma</p>
                 </div>
                 <span className="text-gray-300 group-hover:text-blue-600 transition-colors text-sm">→</span>
               </button>
@@ -96,6 +97,7 @@ export default function PaymentModal({
                   <p className="text-xs text-gray-500 font-light">
                     CBU / Alias · Confirmación en 1–2 días hábiles
                   </p>
+                  <p className="text-xs text-green-600 font-medium mt-0.5">Sin recargo</p>
                 </div>
                 <span className="text-gray-300 group-hover:text-blue-600 transition-colors text-sm">→</span>
               </button>
@@ -110,7 +112,11 @@ export default function PaymentModal({
               >
                 ← Volver a métodos de pago
               </button>
-              <MercadoPagoButton invoiceId={invoice._id} amount={invoice.amount} />
+              <MercadoPagoButton
+                invoiceId={invoice._id}
+                amount={Math.round(invoice.amount * 1.05 * 100) / 100}
+                baseAmount={invoice.amount}
+              />
             </div>
           )}
 

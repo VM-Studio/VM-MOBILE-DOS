@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    const { invoiceId } = await req.json()
+    const { invoiceId, amount: requestedAmount } = await req.json()
     if (!invoiceId) {
       return NextResponse.json({ error: 'invoiceId requerido' }, { status: 400 })
     }
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
           id: invoice._id.toString(),
           title: invoice.description || `Factura #${invoice.number}`,
           quantity: 1,
-          unit_price: Number(invoice.amount),
+          unit_price: requestedAmount ? Number(requestedAmount) : Number(invoice.amount),
           currency_id: 'ARS',
         },
       ],

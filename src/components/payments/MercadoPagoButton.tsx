@@ -6,9 +6,10 @@ import { ExternalLink, Loader2, AlertCircle } from 'lucide-react'
 interface MercadoPagoButtonProps {
   invoiceId: string
   amount: number
+  baseAmount?: number
 }
 
-export default function MercadoPagoButton({ invoiceId, amount }: MercadoPagoButtonProps) {
+export default function MercadoPagoButton({ invoiceId, amount, baseAmount }: MercadoPagoButtonProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -20,7 +21,7 @@ export default function MercadoPagoButton({ invoiceId, amount }: MercadoPagoButt
       const res = await fetch('/api/payments/create-preference', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ invoiceId }),
+        body: JSON.stringify({ invoiceId, amount }),
       })
 
       const data = await res.json()
@@ -44,6 +45,22 @@ export default function MercadoPagoButton({ invoiceId, amount }: MercadoPagoButt
         <p className="mt-1 text-2xl font-light text-gray-900">
           ${amount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
         </p>
+        {baseAmount !== undefined && (
+          <div className="mt-2 flex flex-col gap-0.5">
+            <p className="text-[10px] text-gray-400">
+              Subtotal:{' '}
+              <span className="text-gray-600">
+                ${baseAmount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+              </span>
+            </p>
+            <p className="text-[10px] text-amber-600">
+              Recargo MercadoPago (5%):{' '}
+              <span className="font-medium">
+                +${(amount - baseAmount).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+              </span>
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Métodos aceptados */}
