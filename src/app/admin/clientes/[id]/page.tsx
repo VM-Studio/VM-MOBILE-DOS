@@ -175,14 +175,35 @@ export default function AdminClienteDetailPage() {
             <p className="p-6 text-sm text-gray-400">Sin proyectos.</p>
           ) : (
             <div className="divide-y divide-gray-100">
-              {projects.map((p: { _id: string; name: string; status: string; progress: number }) => (
-                <Link key={p._id} href={`/admin/proyectos/${p._id}`} className="flex items-center justify-between px-6 py-3 hover:bg-gray-50 transition-colors group">
-                  <p className="text-sm text-gray-900 group-hover:text-blue-600 transition-colors">{p.name}</p>
-                  <div className="flex items-center gap-3">
+              {projects.map((p: { _id: string; name: string; status: string; progress: number; awaitingSignature?: boolean; closingSignature?: { signedAt?: string; certificateUrl?: string } | null }) => (
+                <div key={p._id} className="flex items-center justify-between px-6 py-3 hover:bg-gray-50 transition-colors group border-b border-gray-100 last:border-0">
+                  <Link href={`/admin/proyectos/${p._id}`} className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-900 group-hover:text-blue-600 transition-colors truncate">{p.name}</p>
+                  </Link>
+                  <div className="flex items-center gap-3 shrink-0">
                     <span className="text-xs text-gray-400">{p.progress}%</span>
                     <span className={`text-[10px] px-2 py-0.5 tracking-wider uppercase font-medium ${projectStatusColors[p.status] || 'bg-gray-100 text-gray-600'}`}>{p.status.replace('_', ' ')}</span>
+                    {p.closingSignature?.signedAt ? (
+                      <span className="flex items-center gap-1 text-[10px] text-green-600 font-medium">
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                        Firmado
+                        {p.closingSignature?.certificateUrl && (
+                          <a
+                            href={p.closingSignature.certificateUrl}
+                            download={`Cierre-${p.name}.pdf`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="ml-1 text-blue-600 hover:underline"
+                            title="Descargar PDF de cierre"
+                          >
+                            ↓PDF
+                          </a>
+                        )}
+                      </span>
+                    ) : p.awaitingSignature ? (
+                      <span className="text-[10px] text-amber-600 font-medium">⏳ Firma pendiente</span>
+                    ) : null}
                   </div>
-                </Link>
+                </div>
               ))}
             </div>
           )}

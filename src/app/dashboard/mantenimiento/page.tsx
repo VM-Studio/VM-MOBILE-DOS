@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import useAuth from '@/hooks/useAuth'
 import { useMyProjects } from '@/lib/hooks/useProjects'
 
@@ -40,6 +41,7 @@ const ESTADO_LABEL: Record<EstadoMantenimiento, { label: string; color: string }
 }
 
 export default function DashboardMantenimientoPage() {
+  const router = useRouter()
   const { token } = useAuth()
   const { projects } = useMyProjects()
 
@@ -151,6 +153,12 @@ export default function DashboardMantenimientoPage() {
               <span className="inline-block w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
               <p className="text-xs text-blue-500 font-medium tracking-wide">Proyecto en construcción</p>
             </div>
+            <button
+              onClick={() => router.back()}
+              className="mt-2 text-xs text-gray-400 hover:text-gray-600 underline transition-colors"
+            >
+              ← Volver
+            </button>
           </div>
         </div>
       )}

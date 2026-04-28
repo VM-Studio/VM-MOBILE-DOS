@@ -5,6 +5,8 @@ import { useParams, useRouter } from 'next/navigation'
 import DownloadPDFButton from '@/components/pdf/DownloadPDFButton'
 import { useProject } from '@/lib/hooks/useProjects'
 import ProjectPreview from '@/components/client/dashboard/ProjectPreview'
+import ClosingSignatureModal from '@/components/client/proyecto/ClosingSignatureModal'
+import useAuth from '@/hooks/useAuth'
 
 interface Stage {
   _id: string; name: string; order: number; status: string; description?: string
@@ -32,10 +34,13 @@ function Skeleton({ className }: { className?: string }) {
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const { user } = useAuth()
   const { project, isLoading, refresh } = useProject(id ?? null)
   const [rejectStageId, setRejectStageId] = useState<string | null>(null)
   const [rejectComment, setRejectComment] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
+  const [showSignModal, setShowSignModal] = useState(false)
+  const [signedCertUrl, setSignedCertUrl] = useState<string | null>(null)
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('vm_token') : null
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
@@ -118,6 +123,73 @@ export default function ProjectDetailPage() {
       {/* Preview en staging */}
       {project.stagingUrl && <ProjectPreview project={project} />}
 
+      {/* ── Firma de cierre ─────────────────────────────────────────── */}
+      {/* Éxito: proyecto firmado */}
+      {signedCertUrl && (
+        <div className="bg-green-50 border border-green-200 p-5 space-y-3">
+          <div className="flex items-center gap-3">
+            <span className="text-green-600 text-xl">✓</span>
+            <div>
+              <p className="text-sm font-medium text-green-800">¡Documento firmado correctamente!</p>
+              <p className="text-xs text-green-600 font-light">El documento de cierre fue guardado. Podés descargarlo desde acá.</p>
+            </div>
+          </div>
+          <a
+            href={signedCertUrl}
+            download={`Cierre-${project.name}.pdf`}
+            className="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium border border-green-400 text-green-700 hover:bg-green-100 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            DESCARGAR PDF DE CIERRE
+          </a>
+        </div>
+      )}
+
+      {/* Banner: pendiente de firma */}
+      {!signedCertUrl && project.awaitingSignature && !project.closingSignature?.signedAt && (
+        <div className="bg-amber-50 border border-amber-300 p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <span className="text-amber-500 text-xl shrink-0">✍️</span>
+            <div>
+              <p className="text-sm font-medium text-amber-800">Pendiente la firma de finalización</p>
+              <p className="text-xs text-amber-600 font-light mt-0.5">
+                Tu proyecto está listo. Firmá el documento de cierre para confirmarlo oficialmente.
+                Tu sitio continuará alojado de manera indefinida.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowSignModal(true)}
+            className="shrink-0 px-5 py-2.5 bg-gradient-to-r from-gray-900 to-blue-700 text-white text-xs font-medium tracking-wider hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all"
+          >
+            FIRMAR AHORA
+          </button>
+        </div>
+      )}
+
+      {/* Banner: ya firmado (sin éxito reciente) */}
+      {!signedCertUrl && project.closingSignature?.signedAt && (
+        <div className="bg-green-50 border border-green-200 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-green-600">✓</span>
+            <p className="text-sm text-green-800 font-medium">
+              Documento de cierre firmado el{' '}
+              {new Date(project.closingSignature.signedAt).toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })}
+            </p>
+          </div>
+          {project.closingSignature?.certificateUrl && (
+            <a
+              href={project.closingSignature.certificateUrl}
+              download={`Cierre-${project.name}.pdf`}
+              className="shrink-0 text-xs text-green-700 border border-green-300 px-3 py-1.5 hover:bg-green-100 transition-colors"
+            >
+              Descargar PDF →
+            </a>
+          )}
+        </div>
+      )}
       {/* Progress */}
       <div className="bg-white border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-3">
@@ -230,6 +302,19 @@ export default function ProjectDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Firma de cierre modal */}
+      {showSignModal && (
+        <ClosingSignatureModal
+          project={project}
+          clientName={user?.name ?? ''}
+          onSigned={(certUrl) => {
+            setSignedCertUrl(certUrl)
+            setShowSignModal(false)
+            refresh()
+          }}
+        />
       )}
     </div>
   )

@@ -130,6 +130,10 @@ export default function AdminProyectoDetailPage() {
   const [cobroNota, setCobroNota] = useState('')
   const [savingCobro, setSavingCobro] = useState(false)
 
+  // Firma de cierre
+  const [requestingSign, setRequestingSign] = useState(false)
+  const [cancelingSign, setCancelingSign] = useState(false)
+
   const fetchPlan = async () => {
     if (!id) return
     setLoadingPlan(true)
@@ -311,6 +315,33 @@ export default function AdminProyectoDetailPage() {
       alert('Error al eliminar el proyecto.')
       setDeleting(false)
     }
+  }
+
+  const handleRequestSign = async () => {
+    if (!confirm('¿Marcar el proyecto como completado y solicitar la firma de cierre al cliente?')) return
+    setRequestingSign(true)
+    const res = await fetch(`/api/admin/projects/${id}/request-sign`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token()}` },
+    })
+    if (res.ok) {
+      await refresh()
+    } else {
+      const data = await res.json()
+      alert(data.error || 'Error al solicitar firma')
+    }
+    setRequestingSign(false)
+  }
+
+  const handleCancelSign = async () => {
+    if (!confirm('¿Cancelar la solicitud de firma? El proyecto volverá al estado anterior.')) return
+    setCancelingSign(true)
+    await fetch(`/api/admin/projects/${id}/request-sign`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token()}` },
+    })
+    await refresh()
+    setCancelingSign(false)
   }
 
   if (loading) return <div className="p-8 text-sm text-gray-400">Cargando...</div>
@@ -1046,6 +1077,71 @@ export default function AdminProyectoDetailPage() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+      </div>
+
+      {/* ── FIRMA DE CIERRE ────────────────────────────────────────────────── */}
+      <div className="bg-white border border-gray-200 p-6 space-y-4">
+        <span className="text-[11px] font-medium tracking-[0.2em] text-gray-400 uppercase">[ FIRMA DE CIERRE ]</span>
+
+        {project.closingSignature?.signedAt ? (
+          /* Ya firmado */
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 bg-green-50 border border-green-200 px-4 py-3">
+              <span className="text-green-600 text-lg">✓</span>
+              <div>
+                <p className="text-sm font-medium text-green-800">Documento firmado</p>
+                <p className="text-xs text-green-600">
+                  {new Date(project.closingSignature.signedAt).toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </div>
+            </div>
+            {project.closingSignature.certificateUrl && (
+              <a
+                href={project.closingSignature.certificateUrl}
+                download={`Cierre-${project.name}.pdf`}
+                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium border border-blue-400 text-blue-600 hover:bg-blue-50 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                DESCARGAR PDF DE CIERRE
+              </a>
+            )}
+          </div>
+        ) : project.awaitingSignature ? (
+          /* Pendiente de firma del cliente */
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 px-4 py-3">
+              <span className="text-amber-600 text-lg">⏳</span>
+              <div>
+                <p className="text-sm font-medium text-amber-800">Esperando firma del cliente</p>
+                <p className="text-xs text-amber-600">El cliente fue notificado para firmar el documento de cierre.</p>
+              </div>
+            </div>
+            <button
+              onClick={handleCancelSign}
+              disabled={cancelingSign}
+              className="px-4 py-2 text-xs border border-red-300 text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
+            >
+              {cancelingSign ? 'Cancelando...' : 'Cancelar solicitud de firma'}
+            </button>
+          </div>
+        ) : (
+          /* Sin firma solicitada */
+          <div className="space-y-3">
+            <p className="text-sm text-gray-500 font-light">
+              Cuando el proyecto esté listo, podés solicitar la firma del documento de cierre al cliente.
+              Esto marcará el proyecto como <strong>completado</strong> y enviará una notificación al cliente.
+            </p>
+            <button
+              onClick={handleRequestSign}
+              disabled={requestingSign}
+              className="px-5 py-2.5 bg-gradient-to-r from-gray-900 to-blue-700 text-white text-xs font-medium tracking-wider hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+            >
+              {requestingSign ? 'PROCESANDO...' : 'SOLICITAR FIRMA DE CIERRE'}
+            </button>
           </div>
         )}
       </div>
