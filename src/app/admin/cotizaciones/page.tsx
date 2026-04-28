@@ -8,6 +8,7 @@ interface Quote {
   name: string
   email: string
   company?: string
+  phone?: string
   service: string
   status: string
   budget?: string
@@ -136,6 +137,7 @@ export default function AdminCotizacionesPage() {
                     <td className="px-5 py-3.5">
                       <p className="font-medium text-gray-900">{q.name}</p>
                       <p className="text-xs text-gray-400">{q.email}</p>
+                      {q.phone && <p className="text-xs text-gray-400">{q.phone}</p>}
                     </td>
                     <td className="px-5 py-3.5 text-gray-500">{q.company || '—'}</td>
                     <td className="px-5 py-3.5 text-gray-500">{serviceLabels[q.service] || q.service}</td>

@@ -36,16 +36,37 @@ export async function POST(request: Request) {
     const body = await request.json()
 
     const servicios: string[] = Array.isArray(body.servicios) ? body.servicios : []
+
+    // Soporta tanto el formato plano del CotizadorWizard como el formato anidado legacy
+    const datos = body.datos ?? {}
     const web = body.web ?? {}
     const app = body.app ?? {}
     const general = body.general ?? {}
-    const datos = body.datos ?? {}
 
-    const nombre = String(datos.nombre ?? '').trim()
-    const email = String(datos.email ?? '').trim()
-    const whatsapp = String(datos.whatsapp ?? '').trim()
-    const empresa = String(datos.empresa ?? '').trim()
-    const preferenciaContacto = String(datos.preferenciaContacto ?? '').trim()
+    // Campos planos (CotizadorWizard) tienen prioridad sobre los anidados
+    const nombre = String(body.nombre ?? datos.nombre ?? '').trim()
+    const email = String(body.email ?? datos.email ?? '').trim()
+    const whatsapp = String(body.whatsapp ?? datos.whatsapp ?? '').trim()
+    const empresa = String(body.empresa ?? datos.empresa ?? '').trim()
+    const preferenciaContacto = String(body.preferenciaContacto ?? datos.preferenciaContacto ?? '').trim()
+
+    // Campos web — plano o anidado
+    const webTipo = body.webTipo ?? web.tipo
+    const webPaginas = body.webPaginas ?? web.paginas
+    const webContacto: string[] = body.webContacto ?? web.contacto ?? []
+    const webExtras: string[] = body.webExtras ?? web.extras ?? []
+
+    // Campos app — plano o anidado
+    const appTipo = body.appTipo ?? app.tipo
+    const appRubro = body.appRubro ?? app.rubro
+    const appExtras: string[] = body.appExtras ?? app.extras ?? []
+
+    // Campos generales — plano o anidado
+    const etapaNegocio = body.etapaNegocio ?? general.etapa
+    const tieneWeb = body.tieneWeb ?? general.tieneWeb
+    const urlWebActual = body.urlWebActual ?? general.urlWeb
+    const cuandoEmpezar = body.cuandoEmpezar ?? general.cuandoEmpezar
+    const comoNosConocio = body.comoNosConocio ?? general.comoNosConocio
 
     if (!nombre || !email || !whatsapp) {
       return NextResponse.json(
@@ -60,7 +81,13 @@ export async function POST(request: Request) {
       )
     }
 
-    const resultado = calcularPresupuesto({ servicios, web, app, general, datos })
+    const resultado = calcularPresupuesto({
+      servicios,
+      web: { tipo: webTipo, paginas: webPaginas, contacto: webContacto, extras: webExtras },
+      app: { tipo: appTipo, rubro: appRubro, extras: appExtras },
+      general: { etapa: etapaNegocio, tieneWeb, urlWeb: urlWebActual, cuandoEmpezar, comoNosConocio },
+      datos: { nombre, empresa, email, whatsapp, preferenciaContacto },
+    })
 
     const year = new Date().getFullYear()
     const last = await Quote.findOne({ presupuestoNumber: { $regex: `^PRES-${year}-` } })
@@ -128,9 +155,9 @@ export async function POST(request: Request) {
       wantsWhatsapp: preferenciaContacto === 'whatsapp',
       formData: {
         servicios,
-        webTipo: web.tipo, webPaginas: web.paginas, webContacto: web.contacto ?? [], webExtras: web.extras ?? [],
-        appTipo: app.tipo, appRubro: app.rubro, appExtras: app.extras ?? [],
-        etapaNegocio: general.etapa, tieneWeb: general.tieneWeb, urlWebActual: general.urlWeb, cuandoEmpezar: general.cuandoEmpezar, comoNosConocio: general.comoNosConocio,
+        webTipo, webPaginas, webContacto, webExtras,
+        appTipo, appRubro, appExtras,
+        etapaNegocio, tieneWeb, urlWebActual, cuandoEmpezar, comoNosConocio,
         nombre, empresa, email, whatsapp, preferenciaContacto,
       },
       presupuestoCalculado: {
