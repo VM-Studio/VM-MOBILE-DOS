@@ -3,36 +3,65 @@
 import { useState } from 'react'
 import { format, isPast } from 'date-fns'
 
-// ─── Estilos por estado de etapa ──────────────────────────────────────────────
-const STAGE_STYLES: Record<string, {
-  dot: string
-  label: string
-  icon: React.ReactNode
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Extrae una palabra clave del nombre de la etapa */
+function getKeyword(name: string): string {
+  const skip = new Set(['de', 'del', 'la', 'el', 'los', 'las', 'un', 'una', 'y', 'e', 'o', 'con', 'en', 'a', 'al'])
+  const words = name.split(/\s+/)
+  const keyword = words.find(w => !skip.has(w.toLowerCase()) && w.length > 2) ?? words[0]
+  const cap = keyword.charAt(0).toUpperCase() + keyword.slice(1).toLowerCase()
+  return cap.length > 12 ? cap.slice(0, 11) + '…' : cap
+}
+
+// ─── Configuración visual por estado ─────────────────────────────────────────
+const STAGE_CONFIG: Record<string, {
+  ring: string
+  bg: string
+  icon: string
+  textColor: string
+  labelColor: string
+  lineColor: string
 }> = {
   completado: {
-    dot: 'bg-[#2563EB] border-[#2563EB]',
-    label: 'text-[#2563EB]',
-    icon: <span className="text-white text-[10px] font-bold">✓</span>,
-  },
-  en_progreso: {
-    dot: 'bg-white border-[#2563EB] ring-2 ring-[#2563EB] ring-offset-1',
-    label: 'text-[#2563EB]',
-    icon: <span className="text-[#2563EB] text-[10px] font-bold">⟳</span>,
+    ring: 'ring-2 ring-[#2563EB] ring-offset-2',
+    bg: 'bg-[#2563EB]',
+    icon: '✓',
+    textColor: 'text-white',
+    labelColor: 'text-[#2563EB]',
+    lineColor: '#2563EB',
   },
   en_revision: {
-    dot: 'bg-yellow-400 border-yellow-400',
-    label: 'text-yellow-600',
-    icon: <span className="text-white text-[10px] font-bold">!</span>,
+    ring: 'ring-2 ring-amber-400 ring-offset-2',
+    bg: 'bg-amber-400',
+    icon: '⟳',
+    textColor: 'text-white',
+    labelColor: 'text-amber-600',
+    lineColor: '#FBBF24',
+  },
+  en_progreso: {
+    ring: 'ring-2 ring-[#2563EB] ring-offset-2',
+    bg: 'bg-white',
+    icon: '·',
+    textColor: 'text-[#2563EB] text-base',
+    labelColor: 'text-[#2563EB]',
+    lineColor: '#E5E7EB',
   },
   rechazado: {
-    dot: 'bg-red-500 border-red-500',
-    label: 'text-red-500',
-    icon: <span className="text-white text-[10px] font-bold">✕</span>,
+    ring: 'ring-2 ring-red-400 ring-offset-2',
+    bg: 'bg-red-400',
+    icon: '✕',
+    textColor: 'text-white',
+    labelColor: 'text-red-400',
+    lineColor: '#E5E7EB',
   },
   pendiente: {
-    dot: 'bg-white border-gray-300',
-    label: 'text-gray-400',
-    icon: null,
+    ring: 'ring-1 ring-gray-200 ring-offset-1',
+    bg: 'bg-white',
+    icon: '',
+    textColor: '',
+    labelColor: 'text-gray-300',
+    lineColor: '#E5E7EB',
   },
 }
 
@@ -66,7 +95,95 @@ interface Project {
   stages?: Stage[]
 }
 
-// ─── Componente ───────────────────────────────────────────────────────────────
+// ─── Orden de prioridad: completadas/revisión primero ────────────────────────
+const STATUS_SORT_PRIORITY: Record<string, number> = {
+  en_revision: 0,
+  completado:  1,
+  en_progreso: 2,
+  rechazado:   3,
+  pendiente:   4,
+}
+
+// ─── StageNode ────────────────────────────────────────────────────────────────
+function StageNode({ stage, isLast, nextLineColor }: {
+  stage: Stage
+  isLast: boolean
+  nextLineColor: string
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const cfg = STAGE_CONFIG[stage.status] ?? STAGE_CONFIG.pendiente
+  const keyword = getKeyword(stage.name)
+  // Hay más texto si el nombre es significativamente más largo que la keyword
+  const hasMore = stage.name.trim().length > 15
+
+  return (
+    <div className="flex items-start">
+      {/* Nodo + texto */}
+      <div className="flex flex-col items-center relative" style={{ minWidth: 64 }}>
+
+        {/* Círculo */}
+        <div className={`
+          w-8 h-8 rounded-full flex items-center justify-center z-10
+          transition-all duration-200 shadow-sm
+          ${cfg.ring} ${cfg.bg}
+        `}>
+          {stage.status === 'pendiente' ? (
+            <span className="w-2 h-2 rounded-full bg-gray-200 block" />
+          ) : (
+            <span className={`text-[11px] font-bold leading-none ${cfg.textColor}`}>
+              {cfg.icon}
+            </span>
+          )}
+        </div>
+
+        {/* Keyword */}
+        <p className={`text-center mt-1.5 text-[10px] font-semibold leading-tight max-w-[60px] tracking-wide ${cfg.labelColor}`}>
+          {keyword}
+        </p>
+
+        {/* Leer más */}
+        {hasMore && (
+          <button
+            onClick={() => setExpanded(v => !v)}
+            className="mt-0.5 text-[9px] text-gray-400 underline underline-offset-2 hover:text-gray-600 transition-colors leading-tight"
+          >
+            {expanded ? 'cerrar' : 'leer más'}
+          </button>
+        )}
+
+        {/* Tooltip expandido */}
+        {expanded && (
+          <div className="absolute z-30 w-44 bg-[#0F172A] text-white text-[10px] leading-relaxed p-2.5 shadow-xl rounded-sm"
+            style={{ top: '3.5rem' }}
+          >
+            {stage.name}
+            {stage.completedAt && (
+              <p className="text-gray-400 mt-1 text-[9px]">
+                {format(new Date(stage.completedAt), 'dd/MM/yyyy')}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Fecha */}
+        {stage.completedAt && (
+          <p className="text-[9px] text-gray-300 mt-0.5 text-center">
+            {format(new Date(stage.completedAt), 'dd/MM')}
+          </p>
+        )}
+      </div>
+
+      {/* Línea conectora */}
+      {!isLast && (
+        <div className="flex items-center" style={{ marginTop: 15 }}>
+          <div className="h-px w-6 transition-colors duration-300" style={{ backgroundColor: nextLineColor }} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Componente principal ─────────────────────────────────────────────────────
 export default function ProjectTimeline({ project, onRefresh }: { project: Project; onRefresh?: () => void }) {
   const [rejectStageId, setRejectStageId] = useState<string | null>(null)
   const [rejectComment, setRejectComment] = useState('')
@@ -74,15 +191,20 @@ export default function ProjectTimeline({ project, onRefresh }: { project: Proje
 
   const badge = STATUS_BADGE[project.status] ?? STATUS_BADGE.en_progreso
 
-  // Ordenar etapas por order
-  const stages = [...(project.stages ?? [])].sort((a, b) => a.order - b.order)
+  // Completadas/en_revision primero, luego por orden original
+  const stages = [...(project.stages ?? [])].sort((a, b) => {
+    const pa = STATUS_SORT_PRIORITY[a.status] ?? 4
+    const pb = STATUS_SORT_PRIORITY[b.status] ?? 4
+    if (pa !== pb) return pa - pb
+    return a.order - b.order
+  })
 
-  // Primera etapa que no está completada ni rechazada
-  const activeIndex = stages.findIndex(
+  // Primera etapa activa (no completada ni rechazada)
+  const activeStage = stages.find(
     (s) => s.status !== 'completado' && s.status !== 'rechazado'
   )
 
-  // Etapas que necesitan aprobación del cliente ahora mismo
+  // Etapas que necesitan aprobación del cliente
   const pendingApprovals = stages.filter(
     (s) => s.requiresApproval && s.status === 'en_revision'
   )
@@ -156,55 +278,21 @@ export default function ProjectTimeline({ project, onRefresh }: { project: Proje
 
       {/* ── Timeline de etapas ── */}
       {stages.length > 0 && (
-        <div className="mb-4 overflow-x-auto pb-1">
+        <div className="mb-5 overflow-x-auto pb-2">
           <div className="flex items-start min-w-max">
             {stages.map((stage, index) => {
-              const style = STAGE_STYLES[stage.status] ?? STAGE_STYLES.pendiente
               const isLast = index === stages.length - 1
-              const isActive = index === activeIndex
-              const nextCompleted = stages[index + 1]?.status !== 'pendiente'
-
+              const nextStage = stages[index + 1]
+              const nextLineColor = nextStage
+                ? (STAGE_CONFIG[nextStage.status]?.lineColor ?? '#E5E7EB')
+                : '#E5E7EB'
               return (
-                <div key={stage._id} className="flex items-start">
-
-                  {/* Nodo + label */}
-                  <div className="flex flex-col items-center" style={{ minWidth: 72 }}>
-
-                    {/* Dot */}
-                    <div className={`
-                      w-7 h-7 rounded-full border-2 flex items-center justify-center z-10 relative
-                      transition-transform
-                      ${style.dot}
-                      ${isActive ? 'scale-110' : ''}
-                    `}>
-                      {style.icon}
-                    </div>
-
-                    {/* Nombre de etapa */}
-                    <p className={`text-center mt-1.5 text-[10px] font-medium leading-tight max-w-[68px] ${style.label}`}>
-                      {stage.name}
-                    </p>
-
-                    {/* Fecha si está completada */}
-                    {stage.completedAt && (
-                      <p className="text-[9px] text-gray-300 mt-0.5 text-center">
-                        {format(new Date(stage.completedAt), 'dd/MM')}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Línea conectora */}
-                  {!isLast && (
-                    <div className="flex items-center" style={{ marginTop: 13 }}>
-                      <div
-                        className="h-0.5 w-8"
-                        style={{
-                          backgroundColor: nextCompleted ? '#2563EB' : '#E5E7EB',
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
+                <StageNode
+                  key={stage._id}
+                  stage={stage}
+                  isLast={isLast}
+                  nextLineColor={nextLineColor}
+                />
               )
             })}
           </div>
@@ -230,11 +318,11 @@ export default function ProjectTimeline({ project, onRefresh }: { project: Proje
       </div>
 
       {/* ── Etapa activa al pie ── */}
-      {activeIndex >= 0 && (
+      {activeStage && (
         <p className="text-xs text-gray-400 mt-3">
           Etapa actual:{' '}
           <span className="font-medium text-[#0F172A]">
-            {stages[activeIndex]?.name}
+            {activeStage.name}
           </span>
         </p>
       )}
