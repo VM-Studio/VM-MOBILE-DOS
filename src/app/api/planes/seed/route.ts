@@ -7,6 +7,7 @@ const PLANES_INICIALES = [
   {
     nombre: 'Web Básica Informativa',
     descripcion: 'Sitio web informativo de hasta 5 páginas, ideal para presencia digital básica.',
+    tipo: 'web',
     precio: 100000,
     tipoPago: 'pago_unico',
     mantenimientoPrecio: 30000,
@@ -25,6 +26,7 @@ const PLANES_INICIALES = [
   {
     nombre: 'Landing Page',
     descripcion: 'Página de aterrizaje de alta conversión para campañas de marketing y captación de leads.',
+    tipo: 'landing',
     precio: 150000,
     tipoPago: 'pago_unico',
     mantenimientoPrecio: 50000,
@@ -44,6 +46,7 @@ const PLANES_INICIALES = [
   {
     nombre: 'Web Profesional',
     descripcion: 'Sitio web completo con diseño a medida, múltiples secciones y funcionalidades avanzadas.',
+    tipo: 'web',
     precio: 250000,
     tipoPago: 'pago_unico',
     mantenimientoPrecio: 70000,
@@ -65,6 +68,7 @@ const PLANES_INICIALES = [
   {
     nombre: 'Aplicación Web',
     descripcion: 'Plataforma web a medida con funcionalidades complejas, usuarios, y lógica de negocio.',
+    tipo: 'app',
     precio: 750000,
     tipoPago: 'pago_unico',
     mantenimientoPrecio: 100000,
@@ -86,6 +90,7 @@ const PLANES_INICIALES = [
   {
     nombre: 'Aplicación Móvil',
     descripcion: 'App nativa o híbrida para iOS y Android con diseño y experiencia de usuario de primer nivel.',
+    tipo: 'app',
     precio: 1050000,
     tipoPago: 'pago_unico',
     mantenimientoPrecio: 100000,
@@ -106,6 +111,7 @@ const PLANES_INICIALES = [
   {
     nombre: 'Sistema de Gestión Empresarial',
     descripcion: 'ERP o CRM a medida para automatizar y gestionar los procesos internos de tu empresa.',
+    tipo: 'sistema',
     precio: 1500000,
     tipoPago: 'pago_unico',
     mantenimientoPrecio: 150000,

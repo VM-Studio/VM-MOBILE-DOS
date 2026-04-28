@@ -20,9 +20,11 @@ interface Plan {
   _id: string
   nombre: string
   descripcion: string
+  tipo: string
   precio: number
   mantenimientoPrecio?: number | null
   mantenimientoObligatorio: boolean
+  incluye: string[]
 }
 
 export default function NuevoProyectoPage() {
@@ -42,6 +44,7 @@ export default function NuevoProyectoPage() {
     previewUrl: '',
   })
   const [stages, setStages] = useState<StageForm[]>([])
+  const [stagesFromPlan, setStagesFromPlan] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -68,17 +71,34 @@ export default function NuevoProyectoPage() {
       .then((d) => setPlanes(d.planes?.filter((p: Plan & { activo: boolean }) => p.activo) || []))
   }, [])
 
-  // Al seleccionar un plan, pre-completar el precio acordado
+  // Al seleccionar un plan, pre-completar precio, tipo, presupuesto y etapas
   useEffect(() => {
-    if (!planForm.planId) return
+    if (!planForm.planId) {
+      setStagesFromPlan(false)
+      return
+    }
     const plan = planes.find((p) => p._id === planForm.planId)
     if (!plan) return
+    // Pre-completar datos del plan en planForm
     setPlanForm((prev) => ({
       ...prev,
       precioAcordado: String(plan.precio),
       mantenimientoActivo: plan.mantenimientoObligatorio ? true : prev.mantenimientoActivo,
       mantenimientoPrecioAcordado: plan.mantenimientoPrecio != null ? String(plan.mantenimientoPrecio) : '',
     }))
+    // Auto-completar tipo y presupuesto del proyecto
+    setForm((prev) => ({
+      ...prev,
+      type: plan.tipo || prev.type,
+      budget: String(plan.precio),
+    }))
+    // Auto-completar etapas desde los ítems incluidos en el plan
+    setStages(plan.incluye.map((item) => ({
+      name: item,
+      description: '',
+      requiresApproval: false,
+    })))
+    setStagesFromPlan(true)
   }, [planForm.planId, planes])
 
   // Si pago total, monto = precio acordado
@@ -177,9 +197,41 @@ export default function NuevoProyectoPage() {
             />
           </div>
 
+          {/* Plan contratado — selector inline */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Plan contratado</label>
+            <select
+              value={planForm.planId}
+              onChange={(e) => {
+                const newId = e.target.value
+                setPlanForm((p) => ({ ...p, planId: newId }))
+                if (!newId) {
+                  setStagesFromPlan(false)
+                  setStages([])
+                  setForm((p) => ({ ...p, budget: '' }))
+                }
+              }}
+              className="w-full px-3 py-2.5 border border-gray-200 text-sm text-gray-900 focus:outline-none focus:border-blue-400 transition-colors"
+            >
+              <option value="">Sin plan asignado</option>
+              {planes.map((plan) => (
+                <option key={plan._id} value={plan._id}>
+                  {plan.nombre} — ${plan.precio.toLocaleString('es-AR')} ARS
+                </option>
+              ))}
+            </select>
+            {planForm.planId && (
+              <p className="text-[10px] text-blue-500 mt-1">
+                ✓ Tipo, presupuesto y etapas cargados automáticamente desde el plan.
+              </p>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Tipo</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Tipo {planForm.planId && <span className="text-blue-400 font-light">(auto)</span>}
+              </label>
               <select
                 value={form.type}
                 onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))}
@@ -189,10 +241,13 @@ export default function NuevoProyectoPage() {
                 <option value="app">App</option>
                 <option value="landing">Landing</option>
                 <option value="ecommerce">E-commerce</option>
+                <option value="sistema">Sistema / ERP</option>
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Presupuesto total (ARS) — opcional</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Presupuesto total (ARS) {planForm.planId ? <span className="text-blue-400 font-light">(auto)</span> : <span className="text-gray-400">— opcional</span>}
+              </label>
               <input
                 type="number"
                 value={form.budget}
@@ -285,13 +340,32 @@ export default function NuevoProyectoPage() {
         <div className="bg-white border border-gray-200 p-6 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-medium text-gray-900">Etapas del proyecto</h2>
-            <button type="button" onClick={addStage} className="text-xs text-blue-600 hover:underline">
-              + Agregar etapa
-            </button>
+            {stagesFromPlan ? (
+              <button
+                type="button"
+                onClick={() => { setStagesFromPlan(false); setStages([]) }}
+                className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+              >
+                Limpiar y editar manualmente
+              </button>
+            ) : (
+              <button type="button" onClick={addStage} className="text-xs text-blue-600 hover:underline">
+                + Agregar etapa
+              </button>
+            )}
           </div>
 
-          {!stages.length && (
-            <p className="text-sm text-gray-400 font-light">No hay etapas definidas. Podés agregarlas después.</p>
+          {stagesFromPlan && stages.length > 0 && (
+            <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 px-3 py-2.5">
+              <span className="text-blue-500 text-sm mt-0.5">✓</span>
+              <p className="text-xs text-blue-700">
+                <span className="font-medium">{stages.length} etapas cargadas automáticamente</span> desde el plan seleccionado. Podés editarlas o limpiarlas y cargarlas manualmente.
+              </p>
+            </div>
+          )}
+
+          {!stages.length && !stagesFromPlan && (
+            <p className="text-sm text-gray-400 font-light">No hay etapas definidas. Seleccioná un plan para cargarlas automáticamente, o agregálas manualmente.</p>
           )}
 
           {stages.map((s, i) => (
@@ -326,26 +400,13 @@ export default function NuevoProyectoPage() {
           ))}
         </div>
 
-        {/* Actions */}
-        {/* Plan contratado */}
+        {/* Plan contratado — detalle de pago */}
         <div className="bg-white border border-gray-200 p-6 space-y-4">
-          <h2 className="text-sm font-medium text-gray-900">Plan contratado <span className="text-gray-400 font-light">(opcional)</span></h2>
+          <h2 className="text-sm font-medium text-gray-900">Plan contratado <span className="text-gray-400 font-light">(detalle de pago)</span></h2>
 
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Seleccionar plan</label>
-            <select
-              value={planForm.planId}
-              onChange={(e) => setPlanForm((p) => ({ ...p, planId: e.target.value }))}
-              className="w-full px-3 py-2.5 border border-gray-200 text-sm text-gray-900 focus:outline-none focus:border-blue-400 transition-colors"
-            >
-              <option value="">Sin plan asignado</option>
-              {planes.map((plan) => (
-                <option key={plan._id} value={plan._id}>
-                  {plan.nombre} — ${plan.precio.toLocaleString('es-AR')} ARS
-                </option>
-              ))}
-            </select>
-          </div>
+          {!planForm.planId && (
+            <p className="text-sm text-gray-400 font-light">Seleccioná un plan en &quot;Información general&quot; para configurar el pago.</p>
+          )}
 
           {planForm.planId && (
             <>

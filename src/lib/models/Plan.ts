@@ -5,6 +5,7 @@ export type TipoPago = 'pago_unico' | 'mensual'
 export interface IPlan extends Document {
   nombre: string
   descripcion: string
+  tipo: string
   precio: number
   tipoPago: TipoPago
   mantenimientoPrecio?: number | null
@@ -20,6 +21,7 @@ const PlanSchema = new Schema<IPlan>(
   {
     nombre: { type: String, required: true, trim: true },
     descripcion: { type: String, required: true, trim: true },
+    tipo: { type: String, default: 'web' },
     precio: { type: Number, required: true, min: 0 },
     tipoPago: {
       type: String,
