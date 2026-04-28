@@ -48,8 +48,10 @@ export default function MiProyectoPage() {
   }
 
   const activeProjects = projects.filter((p: { status: string }) => p.status === 'en_progreso' || p.status === 'en_revision')
+  const completedProjects = projects.filter((p: { status: string }) => p.status === 'completado')
+  const visibleProjects = [...activeProjects, ...completedProjects]
   const pendingInvoices = invoices.filter((i: { status: string; amount: number }) => i.status === 'pendiente')
-  const previewProject = activeProjects.find((p: { stagingUrl?: string | null; previewUrl?: string | null }) => p.stagingUrl || p.previewUrl) ?? null
+  const previewProject = visibleProjects.find((p: { stagingUrl?: string | null; previewUrl?: string | null }) => p.stagingUrl || p.previewUrl) ?? null
 
   // Firma digital — proyecto que espera ser firmado por el cliente
   const projectPendingSignature = projects.find(
@@ -108,11 +110,11 @@ export default function MiProyectoPage() {
         </div>
         {!loaded ? (
           <div className="space-y-3">{Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-20" />)}</div>
-        ) : activeProjects.length === 0 ? (
-          <div className="bg-white border border-gray-200 p-8 text-center text-sm text-gray-400">No tenés proyectos activos por el momento.</div>
+        ) : visibleProjects.length === 0 ? (
+          <div className="bg-white border border-gray-200 p-8 text-center text-sm text-gray-400">No tenés proyectos por el momento.</div>
         ) : (
           <div className="flex flex-col">
-            {activeProjects.map((p: { _id: string; name: string; type?: string; status: string; progress: number; startDate?: string; estimatedEndDate?: string; stages?: { _id: string; name: string; order: number; status: 'completado' | 'en_progreso' | 'en_revision' | 'rechazado' | 'pendiente'; completedAt?: string; requiresApproval?: boolean; rejectionComment?: string }[] }) => (
+            {visibleProjects.map((p: { _id: string; name: string; type?: string; status: string; progress: number; startDate?: string; estimatedEndDate?: string; stages?: { _id: string; name: string; order: number; status: 'completado' | 'en_progreso' | 'en_revision' | 'rechazado' | 'pendiente'; completedAt?: string; requiresApproval?: boolean; rejectionComment?: string }[] }) => (
               <ProjectTimeline key={p._id} project={p} onRefresh={refreshProjects} />
             ))}
           </div>
