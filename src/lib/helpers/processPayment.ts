@@ -101,6 +101,25 @@ export async function rejectTransfer({ invoiceId, motivo, processedBy }: RejectT
     link: '/dashboard/facturacion',
   })
 
+  // Email al cliente
+  try {
+    const client = await User.findById(invoice.clientId).select('email name').lean()
+    if (client) {
+      const { sendEmail } = await import('@/lib/auth/sendEmail')
+      const { emailComprobanteRechazado } = await import('@/lib/emails/templates')
+      await sendEmail({
+        to: client.email,
+        subject: `VM Studio — Comprobante de pago rechazado`,
+        html: emailComprobanteRechazado({
+          clientName: client.name,
+          invoiceNumber: invoice.number,
+          amount: invoice.amount,
+          motivo,
+        }),
+      })
+    }
+  } catch { /* email es opcional */ }
+
   return invoice
 }
 

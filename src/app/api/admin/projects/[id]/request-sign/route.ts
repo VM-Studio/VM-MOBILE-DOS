@@ -4,6 +4,8 @@ import Project from '@/lib/models/Project'
 import User from '@/lib/models/User'
 import { getAdminFromToken } from '@/lib/helpers/getAdminFromToken'
 import { sendNotification } from '@/lib/helpers/sendNotification'
+import { sendEmail } from '@/lib/auth/sendEmail'
+import { emailFirmaCierreRequerida } from '@/lib/emails/templates'
 import mongoose from 'mongoose'
 
 // POST /api/admin/projects/[id]/request-sign
@@ -42,7 +44,7 @@ export async function POST(
   }
   await project.save()
 
-  // Notify client
+  // Notify client — in-app
   try {
     await sendNotification({
       userId: project.clientId.toString(),
@@ -52,6 +54,22 @@ export async function POST(
       link: `/dashboard/proyectos/${project._id}`,
     })
   } catch { /* optional */ }
+
+  // Email al cliente
+  try {
+    const client = await User.findById(project.clientId).select('email name').lean()
+    if (client) {
+      await sendEmail({
+        to: client.email,
+        subject: `VM Studio — Tu proyecto está listo para firmar`,
+        html: emailFirmaCierreRequerida({
+          clientName: client.name,
+          projectName: project.name,
+          projectId: project._id.toString(),
+        }),
+      })
+    }
+  } catch { /* email es opcional */ }
 
   return NextResponse.json({ success: true })
 }

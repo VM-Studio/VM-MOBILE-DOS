@@ -4,7 +4,16 @@ import Mantenimiento from '@/lib/models/Mantenimiento'
 import Project from '@/lib/models/Project'
 import PlanAsignado from '@/lib/models/PlanAsignado'
 import Notification from '@/lib/models/Notification'
+import User from '@/lib/models/User'
 import { verifyToken } from '@/lib/auth/generateToken'
+import { sendEmail } from '@/lib/auth/sendEmail'
+import { sendEmailToAdmins } from '@/lib/helpers/sendEmailToAdmins'
+import {
+  emailAdminSolicitudMantenimiento,
+  emailMantenimientoAprobado,
+  emailMantenimientoPausado,
+  emailMantenimientoReanudado,
+} from '@/lib/emails/templates'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -130,6 +139,23 @@ export async function POST(
     link: '/dashboard/mantenimiento',
   })
 
+  // Email a todos los admins
+  try {
+    const clientDoc = await User.findById(project.clientId).select('name email').lean()
+    if (clientDoc) {
+      await sendEmailToAdmins({
+        subject: `VM Studio — Solicitud de mantenimiento de ${clientDoc.name}`,
+        html: emailAdminSolicitudMantenimiento({
+          clientName: clientDoc.name,
+          clientEmail: clientDoc.email,
+          projectName: project.name,
+          tipo,
+          notaCliente: notaCliente || undefined,
+        }),
+      })
+    }
+  } catch { /* email es opcional */ }
+
   return NextResponse.json({ mantenimiento }, { status: 201 })
 }
 
@@ -196,6 +222,22 @@ export async function PATCH(
         message: `Tu servicio de mantenimiento fue aprobado y está activo. El próximo cobro será el ${mantenimiento.fechaProximoCobro.toLocaleDateString('es-AR')}.`,
         link: '/dashboard/mantenimiento',
       })
+      // Email al cliente
+      try {
+        const clientDoc = await User.findById(project.clientId).select('name email').lean()
+        if (clientDoc) {
+          await sendEmail({
+            to: clientDoc.email,
+            subject: `VM Studio — Mantenimiento aprobado`,
+            html: emailMantenimientoAprobado({
+              clientName: clientDoc.name,
+              projectName: project.name,
+              tipo: mantenimiento.tipo,
+              proximoCobro: mantenimiento.fechaProximoCobro.toLocaleDateString('es-AR'),
+            }),
+          })
+        }
+      } catch { /* email es opcional */ }
       break
     }
     case 'pausar': {
@@ -209,6 +251,20 @@ export async function PATCH(
         message: 'Tu servicio de mantenimiento fue pausado temporalmente. Contactá al equipo para más información.',
         link: '/dashboard/mantenimiento',
       })
+      // Email al cliente
+      try {
+        const clientDoc = await User.findById(project.clientId).select('name email').lean()
+        if (clientDoc) {
+          await sendEmail({
+            to: clientDoc.email,
+            subject: `VM Studio — Mantenimiento pausado temporalmente`,
+            html: emailMantenimientoPausado({
+              clientName: clientDoc.name,
+              projectName: project.name,
+            }),
+          })
+        }
+      } catch { /* email es opcional */ }
       break
     }
     case 'reanudar': {
@@ -225,6 +281,20 @@ export async function PATCH(
         message: 'Tu servicio de mantenimiento fue reanudado.',
         link: '/dashboard/mantenimiento',
       })
+      // Email al cliente
+      try {
+        const clientDoc = await User.findById(project.clientId).select('name email').lean()
+        if (clientDoc) {
+          await sendEmail({
+            to: clientDoc.email,
+            subject: `VM Studio — Mantenimiento reanudado`,
+            html: emailMantenimientoReanudado({
+              clientName: clientDoc.name,
+              projectName: project.name,
+            }),
+          })
+        }
+      } catch { /* email es opcional */ }
       break
     }
     case 'cancelar': {

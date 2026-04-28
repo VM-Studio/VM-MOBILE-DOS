@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/db'
 import Invoice from '@/lib/models/Invoice'
+import User from '@/lib/models/User'
 import { getClientFromToken } from '@/lib/helpers/getClientFromToken'
 import { sendNotification } from '@/lib/helpers/sendNotification'
+import { sendEmail } from '@/lib/auth/sendEmail'
+import { emailSegundaCuotaDisponible } from '@/lib/emails/templates'
 
 export async function GET(req: NextRequest) {
   const user = getClientFromToken(req)
@@ -40,6 +43,22 @@ export async function GET(req: NextRequest) {
         })
       )
     )
+    // Email segunda cuota
+    try {
+      const clientDoc = await User.findById(user.id).select('email name').lean()
+      if (clientDoc && toEnable.length > 0) {
+        const inv = toEnable[0]
+        await sendEmail({
+          to: clientDoc.email,
+          subject: `VM Studio — Segunda cuota disponible`,
+          html: emailSegundaCuotaDisponible({
+            clientName: clientDoc.name,
+            projectName: 'tu proyecto',
+            amount: inv.amount,
+          }),
+        })
+      }
+    } catch { /* email opcional */ }
   }
 
   const totalPagado = invoices

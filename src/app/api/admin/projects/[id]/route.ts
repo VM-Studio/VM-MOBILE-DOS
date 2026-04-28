@@ -6,7 +6,7 @@ import Project, { IStage } from '@/lib/models/Project';
 import User from '@/lib/models/User';
 import mongoose from 'mongoose';
 import { sendEmail } from '@/lib/auth/sendEmail';
-import { emailEtapaEnRevision, emailArchivoSubido } from '@/lib/emails/templates';
+import { emailEtapaEnRevision, emailArchivoSubido, emailEtapaCompletada, emailProyectoActualizado } from '@/lib/emails/templates';
 
 /** Recalculate progress as the percentage of stages with status 'completado' */
 function calcProgress(stages: IStage[]): number {
@@ -129,6 +129,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         message,
         link: `/dashboard/proyectos/${id}`,
       });
+      // Email al cliente
+      try {
+        const client = await User.findById(clientId).select('email name').lean();
+        if (client) {
+          await sendEmail({
+            to: client.email,
+            subject: `VM Studio — Nueva actualización en tu proyecto`,
+            html: emailProyectoActualizado({
+              clientName: client.name,
+              projectName: project.name,
+              message,
+              projectId: id,
+            }),
+          });
+        }
+      } catch { /* email opcional */ }
     }
 
     return NextResponse.json({ project });
@@ -202,6 +218,29 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     if (status === 'completado') {
       stage.completedAt = new Date();
+      await sendNotification({
+        userId: clientId,
+        type: 'proyecto',
+        title: `Etapa completada`,
+        message: `La etapa "${stage.name}" del proyecto "${project.name}" fue completada.`,
+        link: `/dashboard/proyectos/${id}`,
+      });
+      // Email etapa completada
+      try {
+        const client = await User.findById(clientId).select('email name').lean();
+        if (client) {
+          await sendEmail({
+            to: client.email,
+            subject: `VM Studio — Etapa completada en tu proyecto`,
+            html: emailEtapaCompletada({
+              clientName: client.name,
+              projectName: project.name,
+              stageName: stage.name,
+              projectId: id,
+            }),
+          });
+        }
+      } catch { /* email opcional */ }
     }
 
     if (status === 'en_revision') {

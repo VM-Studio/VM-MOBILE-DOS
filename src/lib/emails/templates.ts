@@ -404,6 +404,267 @@ export function emailAdminEtapaAprobada({
   })
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// TEMPLATES ADICIONALES — CLIENTE
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── FIRMA DE CIERRE SOLICITADA ────────────────────────────────────────────
+export function emailFirmaCierreRequerida({
+  clientName,
+  projectName,
+  projectId,
+}: {
+  clientName: string
+  projectName: string
+  projectId: string
+}): string {
+  return emailShell(`
+    ${emailH2('Tu proyecto está listo para firmar')}
+    ${emailP(`Hola <strong>${clientName}</strong>,`)}
+    ${emailP('El equipo de VM Studio completó tu proyecto. Para finalizarlo oficialmente, necesitamos tu firma digital en el documento de cierre.')}
+    ${emailTable([{ label: 'Proyecto', value: projectName }])}
+    ${emailP('El proceso toma menos de 1 minuto desde tu panel.')}
+    ${emailBtn(`${APP_URL}/dashboard/proyectos/${projectId}`, 'FIRMAR DOCUMENTO DE CIERRE')}
+    ${emailP('Una vez firmado, recibirás tu certificado de entrega en formato PDF.', true)}
+  `)
+}
+
+// ── COMPROBANTE RECHAZADO ─────────────────────────────────────────────────
+export function emailComprobanteRechazado({
+  clientName,
+  invoiceNumber,
+  amount,
+  motivo,
+}: {
+  clientName: string
+  invoiceNumber: string
+  amount: number
+  motivo: string
+}): string {
+  return emailShell(`
+    ${emailH2('Comprobante de pago rechazado')}
+    ${emailP(`Hola <strong>${clientName}</strong>,`)}
+    ${emailP('Revisamos el comprobante de transferencia que enviaste y no pudimos confirmarlo.')}
+    ${emailTable([
+      { label: 'Factura', value: invoiceNumber },
+      { label: 'Monto', value: `$${amount.toLocaleString('es-AR')} ARS` },
+      { label: 'Motivo', value: motivo, valueColor: '#DC2626' },
+    ])}
+    ${emailP('Por favor, volvé a intentarlo con un comprobante válido o contactanos si tenés alguna duda.')}
+    ${emailBtn(`${APP_URL}/dashboard/facturacion`, 'IR A FACTURACIÓN')}
+  `)
+}
+
+// ── MANTENIMIENTO APROBADO ────────────────────────────────────────────────
+export function emailMantenimientoAprobado({
+  clientName,
+  projectName,
+  tipo,
+  proximoCobro,
+}: {
+  clientName: string
+  projectName: string
+  tipo: string
+  proximoCobro: string
+}): string {
+  const tipoLabel = tipo === 'mensual_recurrente' ? 'Mensual recurrente' : 'Puntual'
+  return emailShell(`
+    ${emailH2('¡Mantenimiento aprobado!')}
+    ${emailP(`Hola <strong>${clientName}</strong>,`)}
+    ${emailP('Tu solicitud de mantenimiento fue aprobada por el equipo de VM Studio.')}
+    ${emailTable([
+      { label: 'Proyecto', value: projectName },
+      { label: 'Tipo', value: tipoLabel },
+      { label: 'Próximo cobro', value: proximoCobro, valueColor: '#0F172A' },
+    ])}
+    ${emailP('Podés ver el detalle y el estado de tu mantenimiento desde tu panel.')}
+    ${emailBtn(`${APP_URL}/dashboard/mantenimiento`, 'VER MANTENIMIENTO')}
+  `)
+}
+
+// ── MANTENIMIENTO PAUSADO ─────────────────────────────────────────────────
+export function emailMantenimientoPausado({
+  clientName,
+  projectName,
+}: {
+  clientName: string
+  projectName: string
+}): string {
+  return emailShell(`
+    ${emailH2('Mantenimiento pausado temporalmente')}
+    ${emailP(`Hola <strong>${clientName}</strong>,`)}
+    ${emailP('Tu servicio de mantenimiento fue pausado temporalmente.')}
+    ${emailTable([{ label: 'Proyecto', value: projectName }])}
+    ${emailP('Contactanos si tenés alguna consulta o si querés reactivarlo.')}
+    ${emailBtn(`${APP_URL}/dashboard/mantenimiento`, 'VER MANTENIMIENTO')}
+  `)
+}
+
+// ── MANTENIMIENTO REANUDADO ───────────────────────────────────────────────
+export function emailMantenimientoReanudado({
+  clientName,
+  projectName,
+}: {
+  clientName: string
+  projectName: string
+}): string {
+  return emailShell(`
+    ${emailH2('Mantenimiento reanudado ✓')}
+    ${emailP(`Hola <strong>${clientName}</strong>,`)}
+    ${emailP('Buenas noticias: tu servicio de mantenimiento fue reanudado y está activo nuevamente.')}
+    ${emailTable([{ label: 'Proyecto', value: projectName }])}
+    ${emailBtn(`${APP_URL}/dashboard/mantenimiento`, 'VER MANTENIMIENTO')}
+  `)
+}
+
+// ── ETAPA COMPLETADA ──────────────────────────────────────────────────────
+export function emailEtapaCompletada({
+  clientName,
+  projectName,
+  stageName,
+  projectId,
+}: {
+  clientName: string
+  projectName: string
+  stageName: string
+  projectId: string
+}): string {
+  return emailShell(`
+    ${emailH2('Una etapa fue completada ✓')}
+    ${emailP(`Hola <strong>${clientName}</strong>,`)}
+    ${emailP('El equipo de VM Studio completó una etapa de tu proyecto.')}
+    ${emailTable([
+      { label: 'Etapa completada', value: stageName, valueColor: '#16A34A' },
+      { label: 'Proyecto', value: projectName },
+    ])}
+    ${emailP('Seguí el avance general de tu proyecto desde tu panel.')}
+    ${emailBtn(`${APP_URL}/dashboard/proyectos/${projectId}`, 'VER MI PROYECTO')}
+  `)
+}
+
+// ── ACTUALIZACIÓN EN EL PROYECTO ──────────────────────────────────────────
+export function emailProyectoActualizado({
+  clientName,
+  projectName,
+  message,
+  projectId,
+}: {
+  clientName: string
+  projectName: string
+  message: string
+  projectId: string
+}): string {
+  const preview = message.length > 200 ? message.substring(0, 200) + '...' : message
+  return emailShell(`
+    ${emailH2('Actualización en tu proyecto')}
+    ${emailP(`Hola <strong>${clientName}</strong>,`)}
+    ${emailP('El equipo de VM Studio publicó una nueva actualización en tu proyecto.')}
+    ${emailTable([
+      { label: 'Proyecto', value: projectName },
+      { label: 'Novedad', value: `"${preview}"` },
+    ])}
+    ${emailBtn(`${APP_URL}/dashboard/proyectos/${projectId}`, 'VER ACTUALIZACIÓN')}
+  `)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TEMPLATES ADICIONALES — ADMINS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── ADMIN: NUEVA SOLICITUD DE MANTENIMIENTO ───────────────────────────────
+export function emailAdminSolicitudMantenimiento({
+  clientName,
+  clientEmail,
+  projectName,
+  tipo,
+  notaCliente,
+}: {
+  clientName: string
+  clientEmail: string
+  projectName: string
+  tipo: string
+  notaCliente?: string
+}): string {
+  const tipoLabel = tipo === 'mensual_recurrente' ? 'Mensual recurrente' : 'Puntual'
+  return baseTemplate({
+    titulo: `Nueva solicitud de mantenimiento`,
+    contenido: `
+      <p>${clientName} solicitó un servicio de mantenimiento para su proyecto.</p>
+      <br/>
+      <table width="100%" cellpadding="12" cellspacing="0" style="border: 1px solid #E5E7EB;">
+        <tr style="background: #0F172A;">
+          <td colspan="2" style="padding: 12px 16px;">
+            <p style="margin: 0; color: #93C5FD; font-size: 12px; letter-spacing: 2px;">SOLICITUD DE MANTENIMIENTO</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 16px; color: #6B7280; font-size: 13px; width: 35%;">Cliente</td>
+          <td style="padding: 12px 16px; color: #0F172A; font-size: 14px; font-weight: 600;">${clientName}</td>
+        </tr>
+        <tr style="background: #F8FAFC;">
+          <td style="padding: 12px 16px; color: #6B7280; font-size: 13px;">Email</td>
+          <td style="padding: 12px 16px;"><a href="mailto:${clientEmail}" style="color: #2563EB; font-size: 14px;">${clientEmail}</a></td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 16px; color: #6B7280; font-size: 13px;">Proyecto</td>
+          <td style="padding: 12px 16px; color: #0F172A; font-size: 14px;">${projectName}</td>
+        </tr>
+        <tr style="background: #F8FAFC;">
+          <td style="padding: 12px 16px; color: #6B7280; font-size: 13px;">Tipo</td>
+          <td style="padding: 12px 16px; color: #0F172A; font-size: 14px; font-weight: 600;">${tipoLabel}</td>
+        </tr>
+        ${notaCliente ? `<tr>
+          <td style="padding: 12px 16px; color: #6B7280; font-size: 13px;">Nota</td>
+          <td style="padding: 12px 16px; color: #374151; font-size: 14px; font-style: italic;">"${notaCliente}"</td>
+        </tr>` : ''}
+      </table>
+    `,
+    ctaTexto: 'VER MANTENIMIENTOS',
+    ctaUrl: `${APP_URL}/admin/mantenimientos`,
+    pieTexto: 'Revisá la solicitud y aprobala o rechazala desde el panel de administración.',
+  })
+}
+
+// ── ADMIN: CLIENTE RESPONDIÓ EN UN TICKET ────────────────────────────────
+export function emailAdminClienteRespondiTicket({
+  clientName,
+  clientEmail,
+  ticketNumber,
+  ticketTitle,
+  messagePreview,
+  ticketId,
+}: {
+  clientName: string
+  clientEmail: string
+  ticketNumber: string
+  ticketTitle: string
+  messagePreview: string
+  ticketId: string
+}): string {
+  const preview = messagePreview.substring(0, 150) + (messagePreview.length > 150 ? '...' : '')
+  return baseTemplate({
+    titulo: `${clientName} respondió en un ticket`,
+    contenido: `
+      <p>Un cliente agregó un nuevo mensaje en un ticket de soporte.</p>
+      <br/>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="padding: 16px; background: #F8FAFC; border-left: 3px solid #2563EB;">
+            <p style="margin: 0 0 4px 0; font-size: 12px; color: #6B7280; text-transform: uppercase; letter-spacing: 1px;">${ticketNumber} — ${ticketTitle}</p>
+            <p style="margin: 0 0 8px 0; font-size: 15px; color: #374151; font-style: italic;">&ldquo;${preview}&rdquo;</p>
+            <p style="margin: 0; font-size: 13px; color: #6B7280;">
+              <strong style="color: #0F172A;">${clientName}</strong>
+              &nbsp;&middot;&nbsp; ${clientEmail}
+            </p>
+          </td>
+        </tr>
+      </table>
+    `,
+    ctaTexto: 'VER TICKET',
+    ctaUrl: `${APP_URL}/admin/soporte/${ticketId}`,
+    pieTexto: 'Respondé a la brevedad para mantener una buena atención al cliente.',
+  })
+}
 // ── 3. CLIENTE RECHAZÓ UNA ETAPA ─────────────────────────────────────────
 export function emailAdminEtapaRechazada({
   clientName,
