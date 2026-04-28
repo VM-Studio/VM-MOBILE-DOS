@@ -132,20 +132,44 @@ export default function MensajesPage() {
                   ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-10 w-2/3" />)
                   : messages.length === 0
                     ? <p className="text-xs text-gray-400 text-center mt-8">Ningún mensaje aún. ¡Enviá el primero!</p>
-                    : (messages as ChatMessage[]).map((m) => {
+                  : (messages as ChatMessage[]).map((m, index, arr) => {
                         const isOwn = m.isOwn
+                        const msgDate = new Date(m.createdAt)
+                        const today = new Date()
+                        const yesterday = new Date(); yesterday.setDate(today.getDate() - 1)
+                        const sameDay = (a: Date, b: Date) =>
+                          a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+                        const prevMsg = arr[index - 1]
+                        const prevDate = prevMsg ? new Date(prevMsg.createdAt) : null
+                        const showDateSeparator = !prevDate || !sameDay(msgDate, prevDate)
+                        const dateLabel = sameDay(msgDate, today)
+                          ? 'Hoy'
+                          : sameDay(msgDate, yesterday)
+                            ? 'Ayer'
+                            : msgDate.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
                         return (
-                          <div key={m._id} className={`flex items-end gap-2 ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                            {!isOwn && <VMAvatarIcon />}
-                            <div className={`max-w-[70%]`}>
-                              {!isOwn && (
-                                <p className="text-[10px] font-semibold text-gray-600 mb-1 ml-1">{m.senderName}</p>
-                              )}
-                              <div className={`px-3 py-2 text-xs ${isOwn ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-800'}`}>
-                                <p>{m.content}</p>
-                                <p className={`text-[9px] mt-1 ${isOwn ? 'text-blue-200' : 'text-gray-400'}`}>
-                                  {new Date(m.createdAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
-                                </p>
+                          <div key={m._id}>
+                            {showDateSeparator && (
+                              <div className="flex items-center gap-3 my-4">
+                                <div className="flex-1 h-px bg-gray-100" />
+                                <span className="text-[10px] font-medium tracking-wider text-gray-400 uppercase px-2 shrink-0">
+                                  {dateLabel}
+                                </span>
+                                <div className="flex-1 h-px bg-gray-100" />
+                              </div>
+                            )}
+                            <div className={`flex items-end gap-2 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                              {!isOwn && <VMAvatarIcon />}
+                              <div className={`max-w-[70%]`}>
+                                {!isOwn && (
+                                  <p className="text-[10px] font-semibold text-gray-600 mb-1 ml-1">{m.senderName}</p>
+                                )}
+                                <div className={`px-3 py-2 text-xs ${isOwn ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-800'}`}>
+                                  <p>{m.content}</p>
+                                  <p className={`text-[9px] mt-1 ${isOwn ? 'text-blue-200' : 'text-gray-400'}`}>
+                                    {new Date(m.createdAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                                  </p>
+                                </div>
                               </div>
                             </div>
                           </div>
