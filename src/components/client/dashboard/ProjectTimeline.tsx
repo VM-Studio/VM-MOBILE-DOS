@@ -24,7 +24,7 @@ const STAGE_CONFIG: Record<string, {
   lineColor: string
 }> = {
   completado: {
-    ring: 'ring-2 ring-[#2563EB] ring-offset-2',
+    ring: 'ring-2 ring-[#2563EB] ring-offset-1',
     bg: 'bg-[#2563EB]',
     icon: '✓',
     textColor: 'text-white',
@@ -32,23 +32,23 @@ const STAGE_CONFIG: Record<string, {
     lineColor: '#2563EB',
   },
   en_revision: {
-    ring: 'ring-2 ring-amber-400 ring-offset-2',
+    ring: 'ring-2 ring-amber-400 ring-offset-1',
     bg: 'bg-amber-400',
     icon: '⟳',
     textColor: 'text-white',
-    labelColor: 'text-amber-600',
+    labelColor: 'text-amber-500',
     lineColor: '#FBBF24',
   },
   en_progreso: {
-    ring: 'ring-2 ring-[#2563EB] ring-offset-2',
+    ring: 'ring-2 ring-[#2563EB] ring-offset-1',
     bg: 'bg-white',
-    icon: '·',
-    textColor: 'text-[#2563EB] text-base',
+    icon: '',
+    textColor: '',
     labelColor: 'text-[#2563EB]',
     lineColor: '#E5E7EB',
   },
   rechazado: {
-    ring: 'ring-2 ring-red-400 ring-offset-2',
+    ring: 'ring-2 ring-red-300 ring-offset-1',
     bg: 'bg-red-400',
     icon: '✕',
     textColor: 'text-white',
@@ -56,8 +56,8 @@ const STAGE_CONFIG: Record<string, {
     lineColor: '#E5E7EB',
   },
   pendiente: {
-    ring: 'ring-1 ring-gray-200 ring-offset-1',
-    bg: 'bg-white',
+    ring: 'ring-1 ring-gray-200',
+    bg: 'bg-gray-50',
     icon: '',
     textColor: '',
     labelColor: 'text-gray-300',
@@ -113,31 +113,33 @@ function StageNode({ stage, isLast, nextLineColor }: {
   const [expanded, setExpanded] = useState(false)
   const cfg = STAGE_CONFIG[stage.status] ?? STAGE_CONFIG.pendiente
   const keyword = getKeyword(stage.name)
-  // Hay más texto si el nombre es significativamente más largo que la keyword
   const hasMore = stage.name.trim().length > 15
 
   return (
     <div className="flex items-start">
       {/* Nodo + texto */}
-      <div className="flex flex-col items-center relative" style={{ minWidth: 64 }}>
+      <div className="flex flex-col items-center relative" style={{ minWidth: 56 }}>
 
-        {/* Círculo */}
+        {/* Círculo pequeño */}
         <div className={`
-          w-8 h-8 rounded-full flex items-center justify-center z-10
-          transition-all duration-200 shadow-sm
+          w-6 h-6 rounded-full flex items-center justify-center z-10
+          transition-all duration-200
           ${cfg.ring} ${cfg.bg}
         `}>
-          {stage.status === 'pendiente' ? (
-            <span className="w-2 h-2 rounded-full bg-gray-200 block" />
+          {stage.status === 'en_progreso' ? (
+            /* Punto pulsante para en progreso */
+            <span className="w-1.5 h-1.5 rounded-full bg-[#2563EB] block animate-pulse" />
+          ) : stage.status === 'pendiente' ? (
+            <span className="w-1.5 h-1.5 rounded-full bg-gray-300 block" />
           ) : (
-            <span className={`text-[11px] font-bold leading-none ${cfg.textColor}`}>
+            <span className={`text-[9px] font-bold leading-none ${cfg.textColor}`}>
               {cfg.icon}
             </span>
           )}
         </div>
 
         {/* Keyword */}
-        <p className={`text-center mt-1.5 text-[10px] font-semibold leading-tight max-w-[60px] tracking-wide ${cfg.labelColor}`}>
+        <p className={`text-center mt-1 text-[9px] font-semibold leading-tight max-w-[52px] tracking-wide ${cfg.labelColor}`}>
           {keyword}
         </p>
 
@@ -145,29 +147,48 @@ function StageNode({ stage, isLast, nextLineColor }: {
         {hasMore && (
           <button
             onClick={() => setExpanded(v => !v)}
-            className="mt-0.5 text-[9px] text-gray-400 underline underline-offset-2 hover:text-gray-600 transition-colors leading-tight"
+            className={`mt-0.5 text-[8px] leading-tight transition-colors ${
+              expanded ? 'text-[#2563EB]' : 'text-gray-300 hover:text-gray-500'
+            }`}
           >
-            {expanded ? 'cerrar' : 'leer más'}
+            {expanded ? '▲' : '▼'}
           </button>
         )}
 
-        {/* Tooltip expandido */}
+        {/* Panel expandido — tarjeta blanca con borde y sombra */}
         {expanded && (
-          <div className="absolute z-30 w-44 bg-[#0F172A] text-white text-[10px] leading-relaxed p-2.5 shadow-xl rounded-sm"
-            style={{ top: '3.5rem' }}
+          <div
+            className="absolute z-30 left-1/2 -translate-x-1/2 w-52 bg-white border border-gray-100 shadow-lg rounded-md p-3"
+            style={{ top: '4rem' }}
           >
-            {stage.name}
+            {/* Indicador de estado */}
+            <div className="flex items-center gap-1.5 mb-2">
+              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                stage.status === 'completado' ? 'bg-[#2563EB]' :
+                stage.status === 'en_revision' ? 'bg-amber-400' :
+                stage.status === 'en_progreso' ? 'bg-blue-300' :
+                stage.status === 'rechazado' ? 'bg-red-400' : 'bg-gray-300'
+              }`} />
+              <span className="text-[8px] uppercase tracking-widest text-gray-400 font-medium">
+                {stage.status.replace('_', ' ')}
+              </span>
+            </div>
+            {/* Nombre completo */}
+            <p className="text-[11px] text-gray-700 leading-relaxed font-medium">
+              {stage.name}
+            </p>
+            {/* Fecha */}
             {stage.completedAt && (
-              <p className="text-gray-400 mt-1 text-[9px]">
-                {format(new Date(stage.completedAt), 'dd/MM/yyyy')}
+              <p className="text-[9px] text-gray-400 mt-1.5 border-t border-gray-50 pt-1.5">
+                Completado el {format(new Date(stage.completedAt), 'dd/MM/yyyy')}
               </p>
             )}
           </div>
         )}
 
-        {/* Fecha */}
-        {stage.completedAt && (
-          <p className="text-[9px] text-gray-300 mt-0.5 text-center">
+        {/* Fecha debajo del keyword */}
+        {stage.completedAt && !expanded && (
+          <p className="text-[8px] text-gray-300 mt-0.5 text-center">
             {format(new Date(stage.completedAt), 'dd/MM')}
           </p>
         )}
@@ -175,8 +196,8 @@ function StageNode({ stage, isLast, nextLineColor }: {
 
       {/* Línea conectora */}
       {!isLast && (
-        <div className="flex items-center" style={{ marginTop: 15 }}>
-          <div className="h-px w-6 transition-colors duration-300" style={{ backgroundColor: nextLineColor }} />
+        <div className="flex items-center" style={{ marginTop: 11 }}>
+          <div className="h-px w-5 transition-colors duration-300" style={{ backgroundColor: nextLineColor }} />
         </div>
       )}
     </div>
