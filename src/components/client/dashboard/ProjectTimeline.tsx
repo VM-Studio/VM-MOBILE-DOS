@@ -24,15 +24,15 @@ const STAGE_CONFIG: Record<string, {
   lineColor: string
 }> = {
   completado: {
-    ring: 'ring-2 ring-[#2563EB] ring-offset-1',
-    bg: 'bg-[#2563EB]',
+    ring: '',
+    bg: '',
     icon: '✓',
     textColor: 'text-white',
     labelColor: 'text-[#2563EB]',
     lineColor: '#2563EB',
   },
   en_revision: {
-    ring: 'ring-2 ring-amber-400 ring-offset-1',
+    ring: '',
     bg: 'bg-amber-400',
     icon: '⟳',
     textColor: 'text-white',
@@ -40,15 +40,15 @@ const STAGE_CONFIG: Record<string, {
     lineColor: '#FBBF24',
   },
   en_progreso: {
-    ring: 'ring-2 ring-[#2563EB] ring-offset-1',
-    bg: 'bg-white',
+    ring: '',
+    bg: '',
     icon: '',
     textColor: '',
     labelColor: 'text-[#2563EB]',
     lineColor: '#E5E7EB',
   },
   rechazado: {
-    ring: 'ring-2 ring-red-300 ring-offset-1',
+    ring: '',
     bg: 'bg-red-400',
     icon: '✕',
     textColor: 'text-white',
@@ -56,8 +56,8 @@ const STAGE_CONFIG: Record<string, {
     lineColor: '#E5E7EB',
   },
   pendiente: {
-    ring: 'ring-1 ring-gray-200',
-    bg: 'bg-gray-50',
+    ring: '',
+    bg: 'bg-gray-200',
     icon: '',
     textColor: '',
     labelColor: 'text-gray-300',
@@ -138,16 +138,19 @@ function StageNode({ stage, isLast, nextLineColor }: {
         <div className={`flex items-center gap-2 ${expanded ? 'self-start w-full' : 'flex-col'}`}>
           {/* Círculo */}
           <div className={`
-            flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center
+            flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center
             transition-all duration-200
-            ${cfg.ring} ${cfg.bg}
+            ${stage.status === 'completado' || stage.status === 'en_progreso'
+              ? 'bg-gradient-to-br from-[#0F172A] to-[#2563EB]'
+              : cfg.bg
+            }
           `}>
             {stage.status === 'en_progreso' ? (
-              <span className="w-1.5 h-1.5 rounded-full bg-[#2563EB] block animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-white block animate-pulse" />
             ) : stage.status === 'pendiente' ? (
-              <span className="w-1.5 h-1.5 rounded-full bg-gray-300 block" />
+              <span className="w-1 h-1 rounded-full bg-gray-400 block" />
             ) : (
-              <span className={`text-[9px] font-bold leading-none ${cfg.textColor}`}>
+              <span className={`text-[8px] font-bold leading-none ${cfg.textColor}`}>
                 {cfg.icon}
               </span>
             )}
