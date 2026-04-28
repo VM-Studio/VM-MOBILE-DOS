@@ -41,6 +41,7 @@ export default function ProjectDetailPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [showSignModal, setShowSignModal] = useState(false)
   const [signedCertUrl, setSignedCertUrl] = useState<string | null>(null)
+  const [expandedStageId, setExpandedStageId] = useState<string | null>(null)
 
   // Auto-abrir modal de firma cuando el admin lo solicita
   useEffect(() => {
@@ -90,7 +91,12 @@ export default function ProjectDetailPage() {
     )
   }
 
-  const sortedStages = [...project.stages].sort((a, b) => a.order - b.order)
+  const STATUS_PRIORITY: Record<string, number> = { completado: 0, en_revision: 1, en_progreso: 2, pendiente: 3, rechazado: 4 }
+  const sortedStages = [...project.stages].sort((a, b) => {
+    const pa = STATUS_PRIORITY[a.status] ?? 5
+    const pb = STATUS_PRIORITY[b.status] ?? 5
+    return pa !== pb ? pa - pb : a.order - b.order
+  })
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8">
@@ -211,39 +217,85 @@ export default function ProjectDetailPage() {
       {sortedStages.length > 0 && (
         <div>
           <span className="text-[11px] font-medium tracking-[0.2em] text-gray-400 uppercase block mb-4">[ ETAPAS DEL PROYECTO ]</span>
-          <div className="space-y-3">
-            {sortedStages.map((stage: Stage) => (
-              <div key={stage._id} className={`bg-white border p-5 ${STAGE_COLORS[stage.status]}`}>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3">
-                    <span className="text-lg font-light text-gray-300 leading-none">{String(stage.order).padStart(2, '0')}</span>
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-900">{stage.name}</h3>
-                      {stage.description && <p className="mt-1 text-xs text-gray-500">{stage.description}</p>}
-                      {stage.rejectionComment && (
-                        <p className="mt-1 text-xs text-red-500">Motivo: {stage.rejectionComment}</p>
-                      )}
+          <div className="space-y-2">
+            {sortedStages.map((stage: Stage) => {
+              const isExpanded = expandedStageId === stage._id
+              const keyword = stage.name.split(' ').slice(0, 2).join(' ')
+              const hasMore = stage.name.split(' ').length > 2 || !!stage.description
+              return (
+                <div key={stage._id} className="bg-white border border-gray-200 overflow-hidden">
+                  {/* Top accent bar */}
+                  <div className={`h-0.5 w-full ${
+                    stage.status === 'completado' ? 'bg-green-500' :
+                    stage.status === 'en_revision' ? 'bg-yellow-400' :
+                    stage.status === 'en_progreso' ? 'bg-blue-500' :
+                    stage.status === 'rechazado' ? 'bg-red-400' : 'bg-gray-200'
+                  }`} />
+                  <div className="px-5 py-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="text-xs font-light text-gray-300 shrink-0 tabular-nums">
+                          {String(stage.order).padStart(2, '0')}
+                        </span>
+                        <span className="text-sm font-medium text-gray-900 truncate">{keyword}</span>
+                        {hasMore && (
+                          <button
+                            onClick={() => setExpandedStageId(isExpanded ? null : stage._id)}
+                            className="text-[10px] font-medium tracking-wider text-blue-500 hover:text-blue-700 shrink-0 transition-colors"
+                          >
+                            {isExpanded ? 'CERRAR' : 'LEER MÁS'}
+                          </button>
+                        )}
+                      </div>
+                      <span className={`text-[10px] font-medium tracking-wider px-2.5 py-1 uppercase shrink-0 border ${STAGE_COLORS[stage.status]}`}>
+                        {STAGE_LABELS[stage.status]}
+                      </span>
                     </div>
+
+                    {/* Expanded content */}
+                    {isExpanded && (
+                      <div className="mt-3 pt-3 border-t border-gray-100 space-y-1.5">
+                        {stage.name.split(' ').length > 2 && (
+                          <p className="text-sm text-gray-800 font-medium">{stage.name}</p>
+                        )}
+                        {stage.description && (
+                          <p className="text-xs text-gray-500 leading-relaxed">{stage.description}</p>
+                        )}
+                        {stage.rejectionComment && (
+                          <p className="text-xs text-red-500 mt-1">
+                            <span className="font-medium">Motivo de rechazo:</span> {stage.rejectionComment}
+                          </p>
+                        )}
+                        {stage.approvedAt && (
+                          <p className="text-xs text-green-600">
+                            Aprobado el {new Date(stage.approvedAt).toLocaleDateString('es-AR')}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Rejection comment always visible (brief) */}
+                    {!isExpanded && stage.rejectionComment && (
+                      <p className="mt-2 text-xs text-red-400 truncate">↳ {stage.rejectionComment}</p>
+                    )}
+
+                    {/* Approval buttons */}
+                    {stage.requiresApproval && stage.status === 'en_revision' && (
+                      <div className="mt-4 flex gap-2">
+                        <button onClick={() => handleApprove(stage._id)} disabled={actionLoading}
+                          className="px-4 py-2 text-xs font-medium bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-50">
+                          ✓ APROBAR
+                        </button>
+                        <button onClick={() => setRejectStageId(stage._id)} disabled={actionLoading}
+                          className="px-4 py-2 text-xs font-medium border border-red-300 text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50">
+                          ✕ RECHAZAR
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  <span className={`text-[10px] font-medium tracking-wider px-2 py-0.5 uppercase shrink-0 border ${STAGE_COLORS[stage.status]}`}>
-                    {STAGE_LABELS[stage.status]}
-                  </span>
                 </div>
-                {/* Approval buttons */}
-                {stage.requiresApproval && stage.status === 'en_revision' && (
-                  <div className="mt-4 flex gap-3">
-                    <button onClick={() => handleApprove(stage._id)} disabled={actionLoading}
-                      className="px-4 py-2 text-xs font-medium bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-50">
-                      ✓ APROBAR ETAPA
-                    </button>
-                    <button onClick={() => setRejectStageId(stage._id)} disabled={actionLoading}
-                      className="px-4 py-2 text-xs font-medium border border-red-400 text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50">
-                      ✕ RECHAZAR
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
