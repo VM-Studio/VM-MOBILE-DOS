@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import DownloadPDFButton from '@/components/pdf/DownloadPDFButton'
 import { useProject } from '@/lib/hooks/useProjects'
@@ -41,6 +41,13 @@ export default function ProjectDetailPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [showSignModal, setShowSignModal] = useState(false)
   const [signedCertUrl, setSignedCertUrl] = useState<string | null>(null)
+
+  // Auto-abrir modal de firma cuando el admin lo solicita
+  useEffect(() => {
+    if (project && project.awaitingSignature && !project.closingSignature?.signedAt && !signedCertUrl) {
+      setShowSignModal(true)
+    }
+  }, [project, signedCertUrl])
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('vm_token') : null
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
@@ -130,8 +137,8 @@ export default function ProjectDetailPage() {
           <div className="flex items-center gap-3">
             <span className="text-green-600 text-xl">✓</span>
             <div>
-              <p className="text-sm font-medium text-green-800">¡Documento firmado correctamente!</p>
-              <p className="text-xs text-green-600 font-light">El documento de cierre fue guardado. Podés descargarlo desde acá.</p>
+              <p className="text-sm font-medium text-green-800">¡Proyecto finalizado correctamente!</p>
+              <p className="text-xs text-green-600 font-light">El documento fue guardado en la sección <strong>Documentos</strong> de tu perfil.</p>
             </div>
           </div>
           <a
@@ -147,22 +154,21 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
-      {/* Banner: pendiente de firma */}
-      {!signedCertUrl && project.awaitingSignature && !project.closingSignature?.signedAt && (
+      {/* Banner: pendiente de firma — se muestra si por algún motivo el modal se cerró */}
+      {!signedCertUrl && project.awaitingSignature && !project.closingSignature?.signedAt && !showSignModal && (
         <div className="bg-amber-50 border border-amber-300 p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-start gap-3">
             <span className="text-amber-500 text-xl shrink-0">✍️</span>
             <div>
-              <p className="text-sm font-medium text-amber-800">Pendiente la firma de finalización</p>
+              <p className="text-sm font-medium text-amber-800">Pendiente: Finalización del proyecto</p>
               <p className="text-xs text-amber-600 font-light mt-0.5">
-                Tu proyecto está listo. Firmá el documento de cierre para confirmarlo oficialmente.
-                Tu sitio continuará alojado de manera indefinida.
+                Tu proyecto está listo. Firmá el documento para finalizarlo oficialmente.
               </p>
             </div>
           </div>
           <button
             onClick={() => setShowSignModal(true)}
-            className="shrink-0 px-5 py-2.5 bg-gradient-to-r from-gray-900 to-blue-700 text-white text-xs font-medium tracking-wider hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all"
+            className="shrink-0 px-5 py-2.5 bg-gradient-to-r from-gray-900 to-blue-700 text-white text-xs font-medium tracking-wider hover:shadow-lg transition-all"
           >
             FIRMAR AHORA
           </button>

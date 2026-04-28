@@ -98,7 +98,7 @@ export default function ClosingSignatureModal({
             VM <span className="text-[#2563EB] font-bold">Studio</span>
           </p>
           <p className="text-[10px] font-medium tracking-[0.3em] text-gray-400 uppercase mt-2">
-            Documento de cierre de proyecto
+            Finalización del proyecto
           </p>
         </div>
 
@@ -136,7 +136,7 @@ export default function ClosingSignatureModal({
               Por medio de la presente firma, el cliente declara haber recibido conforme el
               proyecto detallado, habiendo abonado la totalidad del presupuesto acordado.
               VM Studio declara haber cumplido con todas las etapas pactadas según el alcance
-              del proyecto aprobado.
+              del proyecto aprobado. <strong className="text-gray-500">Tu sitio permanecerá alojado de manera indefinida.</strong>
             </p>
           </div>
 
@@ -190,8 +190,9 @@ export default function ClosingSignatureModal({
 
           {/* Disclaimer */}
           <p className="text-[9px] text-gray-400 italic mb-5 leading-relaxed">
-            Al presionar &quot;FIRMAR Y CERRAR PROYECTO&quot; confirmás que estás de acuerdo con los
+            Al presionar &quot;FINALIZAR PROYECTO&quot; confirmás que estás de acuerdo con los
             términos del documento y que tu firma digital es válida y vinculante.
+            El documento quedará guardado en la sección <strong>Documentos</strong> de tu perfil.
           </p>
 
           {/* Botón de firma */}
@@ -200,7 +201,7 @@ export default function ClosingSignatureModal({
             disabled={isSigning}
             className="w-full py-4 bg-gradient-to-r from-[#0F172A] to-[#2563EB] text-white text-[10px] font-medium tracking-[0.2em] uppercase hover:opacity-90 disabled:opacity-50 transition"
           >
-            {isSigning ? 'PROCESANDO FIRMA...' : 'FIRMAR Y CERRAR PROYECTO'}
+            {isSigning ? 'PROCESANDO...' : 'FINALIZAR PROYECTO'}
           </button>
         </div>
       </div>

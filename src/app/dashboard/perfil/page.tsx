@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from 'react'
 import useAuth from '@/hooks/useAuth'
+import { useMyProjects } from '@/lib/hooks/useProjects'
 
 interface UserData {
   name: string; email: string; phone: string; company: string; position: string
   website?: string; address?: string
 }
 
-type Tab = 'personal' | 'empresa' | 'seguridad'
+type Tab = 'personal' | 'empresa' | 'seguridad' | 'documentos'
 
 function Skeleton({ className }: { className?: string }) {
   return <div className={`animate-pulse bg-gray-200 rounded ${className}`} />
@@ -16,6 +17,7 @@ function Skeleton({ className }: { className?: string }) {
 
 export default function PerfilPage() {
   const { user, logout } = useAuth()
+  const { projects } = useMyProjects()
   const [activeTab, setActiveTab] = useState<Tab>('personal')
   const [formData, setFormData] = useState<UserData>({ name: '', email: '', phone: '', company: '', position: '', website: '', address: '' })
   const [loading, setLoading] = useState(true)
@@ -83,6 +85,7 @@ export default function PerfilPage() {
     { key: 'personal', label: 'Datos personales' },
     { key: 'empresa', label: 'Empresa' },
     { key: 'seguridad', label: 'Seguridad' },
+    { key: 'documentos', label: 'Documentos' },
   ]
 
   return (
@@ -270,6 +273,73 @@ export default function PerfilPage() {
               RESETEAR Y REACTIVAR NOTIFICACIONES
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Tab: Documentos */}
+      {activeTab === 'documentos' && (
+        <div className="bg-white border border-gray-200 p-6 space-y-4">
+          <div>
+            <p className="text-[10px] font-medium tracking-[0.2em] text-gray-400 uppercase mb-1">[ DOCUMENTOS DE CIERRE ]</p>
+            <p className="text-xs text-gray-500 font-light">
+              Aquí encontrarás el documento de finalización de tu proyecto, firmado por ambas partes.
+            </p>
+          </div>
+
+          {/* Proyectos firmados */}
+          {(() => {
+            const signed = (projects ?? []).filter(
+              (p: { closingSignature?: { signedAt?: string; certificateUrl?: string } | null }) =>
+                p.closingSignature?.signedAt
+            )
+            if (!projects) {
+              return <p className="text-sm text-gray-400">Cargando...</p>
+            }
+            if (signed.length === 0) {
+              return (
+                <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
+                  <div className="w-12 h-12 flex items-center justify-center bg-gray-100">
+                    <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <p className="text-sm text-gray-400 font-light">No hay documentos de cierre todavía.</p>
+                  <p className="text-xs text-gray-300">Aparecerán aquí cuando tu proyecto sea finalizado y firmado.</p>
+                </div>
+              )
+            }
+            return (
+              <div className="space-y-3">
+                {signed.map((p: { _id: string; name: string; type?: string; closingSignature: { signedAt: string; certificateUrl?: string; adminName?: string } }) => (
+                  <div key={p._id} className="flex items-center justify-between border border-gray-100 bg-gray-50 px-5 py-4">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{p.name}</p>
+                      {p.type && <p className="text-[10px] text-gray-400 uppercase tracking-wider">{p.type}</p>}
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Firmado el{' '}
+                        {new Date(p.closingSignature.signedAt).toLocaleDateString('es-AR', {
+                          day: '2-digit', month: 'long', year: 'numeric',
+                        })}
+                        {p.closingSignature.adminName ? ` · ${p.closingSignature.adminName}` : ''}
+                      </p>
+                    </div>
+                    {p.closingSignature.certificateUrl && (
+                      <a
+                        href={p.closingSignature.certificateUrl}
+                        download={`Cierre-${p.name}.pdf`}
+                        className="shrink-0 ml-4 inline-flex items-center gap-1.5 px-4 py-2 text-[10px] font-medium tracking-wider border border-blue-400 text-blue-600 hover:bg-blue-50 uppercase transition-colors"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        DESCARGAR PDF
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
         </div>
       )}
     </div>
