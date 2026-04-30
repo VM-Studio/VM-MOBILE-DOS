@@ -34,6 +34,13 @@ const statusLabels: Record<string, string> = {
 }
 
 const serviceLabels: Record<string, string> = {
+  web_basica: 'Web Básica',
+  web_profesional: 'Web Profesional',
+  landing: 'Landing Page',
+  app_mobile: 'App Mobile',
+  app_web: 'App Web',
+  sistema_gestion: 'Sistema de Gestión',
+  ecommerce: 'E-Commerce',
   web: 'Web',
   app: 'App',
   google_ads: 'Google Ads',

@@ -1,20 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import path from 'path'
-import fs from 'fs/promises'
-import nodemailer from 'nodemailer'
 import dbConnect from '@/lib/db'
 import Quote from '@/lib/models/Quote'
 import User from '@/lib/models/User'
 import { getClientFromToken } from '@/lib/helpers/getClientFromToken'
-import { calcularPresupuesto } from '@/lib/cotizador/calcularPresupuesto'
-import { generatePresupuestoPDF } from '@/lib/pdf/generators/generatePresupuestoPDF'
 import { sendNotification } from '@/lib/helpers/sendNotification'
-import { emailShell, emailBtn, emailDarkBlock, emailP, emailH2 } from '@/lib/email/emailTemplate'
 import { sendEmailToAdmins } from '@/lib/helpers/sendEmailToAdmins'
-import { emailAdminNuevaCotizacion } from '@/lib/emails/templates'
+import { emailShell } from '@/lib/email/emailTemplate'
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://vmstudioweb.online',
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 }
@@ -23,71 +17,57 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 200, headers: corsHeaders })
 }
 
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST ?? 'smtp.gmail.com',
-  port: Number(process.env.EMAIL_PORT ?? 587),
-  secure: false,
-  auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-})
+const SERVICE_LABELS: Record<string, string> = {
+  web_basica: 'Web Básica',
+  web_profesional: 'Web Profesional',
+  landing: 'Landing Page',
+  app_mobile: 'App Mobile',
+  app_web: 'App Web',
+  sistema_gestion: 'Sistema de Gestión',
+  ecommerce: 'Tienda Online (E-Commerce)',
+  web: 'Desarrollo Web',
+  app: 'Aplicación',
+  otro: 'Otro',
+}
+
+type ServiceEnum = 'web' | 'app' | 'otro' | 'web_basica' | 'web_profesional' | 'landing' | 'app_mobile' | 'app_web' | 'sistema_gestion' | 'ecommerce'
+
+function mapService(servicio: string): ServiceEnum {
+  const valid: ServiceEnum[] = ['web_basica', 'web_profesional', 'landing', 'app_mobile', 'app_web', 'sistema_gestion', 'ecommerce', 'web', 'app', 'otro']
+  if (valid.includes(servicio as ServiceEnum)) return servicio as ServiceEnum
+  return 'otro'
+}
 
 export async function POST(request: Request) {
   try {
     await dbConnect()
     const body = await request.json()
 
-    const servicios: string[] = Array.isArray(body.servicios) ? body.servicios : []
-
-    // Soporta tanto el formato plano del CotizadorWizard como el formato anidado legacy
     const datos = body.datos ?? {}
-    const web = body.web ?? {}
-    const app = body.app ?? {}
-    const general = body.general ?? {}
 
-    // Campos planos (CotizadorWizard) tienen prioridad sobre los anidados
     const nombre = String(body.nombre ?? datos.nombre ?? '').trim()
     const email = String(body.email ?? datos.email ?? '').trim()
-    const whatsapp = String(body.whatsapp ?? datos.whatsapp ?? '').trim()
+    const telefono = String(body.telefono ?? body.whatsapp ?? body.phone ?? datos.whatsapp ?? '').trim()
     const empresa = String(body.empresa ?? datos.empresa ?? '').trim()
     const preferenciaContacto = String(body.preferenciaContacto ?? datos.preferenciaContacto ?? '').trim()
+    const quiereContacto: boolean = body.quiereContacto ?? body.wantsContact ?? true
 
-    // Campos web — plano o anidado
-    const webTipo = body.webTipo ?? web.tipo
-    const webPaginas = body.webPaginas ?? web.paginas
-    const webContacto: string[] = body.webContacto ?? web.contacto ?? []
-    const webExtras: string[] = body.webExtras ?? web.extras ?? []
+    const servicioSimple: string = body.servicio ?? ''
+    const serviciosLegacy: string[] = Array.isArray(body.servicios) ? body.servicios : []
+    const servicioFinal = servicioSimple || serviciosLegacy[0] || ''
 
-    // Campos app — plano o anidado
-    const appTipo = body.appTipo ?? app.tipo
-    const appRubro = body.appRubro ?? app.rubro
-    const appExtras: string[] = body.appExtras ?? app.extras ?? []
-
-    // Campos generales — plano o anidado
-    const etapaNegocio = body.etapaNegocio ?? general.etapa
-    const tieneWeb = body.tieneWeb ?? general.tieneWeb
-    const urlWebActual = body.urlWebActual ?? general.urlWeb
-    const cuandoEmpezar = body.cuandoEmpezar ?? general.cuandoEmpezar
-    const comoNosConocio = body.comoNosConocio ?? general.comoNosConocio
-
-    if (!nombre || !email || !whatsapp) {
+    if (!nombre || !email) {
       return NextResponse.json(
-        { success: false, error: 'Nombre, email y WhatsApp son obligatorios.' },
+        { success: false, error: 'Nombre y email son obligatorios.' },
         { status: 400, headers: corsHeaders }
       )
     }
-    if (servicios.length === 0) {
+    if (!servicioFinal) {
       return NextResponse.json(
-        { success: false, error: 'Seleccioná al menos un servicio.' },
+        { success: false, error: 'Seleccioná un servicio.' },
         { status: 400, headers: corsHeaders }
       )
     }
-
-    const resultado = calcularPresupuesto({
-      servicios,
-      web: { tipo: webTipo, paginas: webPaginas, contacto: webContacto, extras: webExtras },
-      app: { tipo: appTipo, rubro: appRubro, extras: appExtras },
-      general: { etapa: etapaNegocio, tieneWeb, urlWeb: urlWebActual, cuandoEmpezar, comoNosConocio },
-      datos: { nombre, empresa, email, whatsapp, preferenciaContacto },
-    })
 
     const year = new Date().getFullYear()
     const last = await Quote.findOne({ presupuestoNumber: { $regex: `^PRES-${year}-` } })
@@ -109,90 +89,30 @@ export async function POST(request: Request) {
       if (user) userId = user.id
     } catch { /* sin token, ok */ }
 
-    const fecha = new Date()
-    const validoHasta = new Date(fecha)
-    validoHasta.setDate(validoHasta.getDate() + 30)
-
-    let pdfBuffer: Buffer
-    let pdfUrl: string
-
-    try {
-      pdfBuffer = await generatePresupuestoPDF({
-        presupuestoNumber,
-        fecha,
-        validoHasta,
-        cliente: { nombre, empresa, email, whatsapp },
-        servicios: resultado.items.map(i => i.descripcion),
-        total: resultado.total,
-        tiempoEstimado: resultado.tiempoEstimado,
-      })
-      const pdfDir = path.join(process.cwd(), 'public', 'presupuestos')
-      await fs.mkdir(pdfDir, { recursive: true })
-      const pdfFileName = `${presupuestoNumber}.pdf`
-      await fs.writeFile(path.join(pdfDir, pdfFileName), pdfBuffer)
-      pdfUrl = `/presupuestos/${pdfFileName}`
-    } catch (pdfErr) {
-      console.error('[cotizador] Error generando PDF:', pdfErr)
-      pdfBuffer = Buffer.from('')
-      pdfUrl = ''
-    }
-
-    const primaryService = servicios.includes('web') ? 'web'
-      : servicios.includes('app') ? 'app'
-      : 'otro'
-
     const quote = await Quote.create({
       name: nombre,
       email,
-      company: empresa,
-      phone: whatsapp,
-      service: primaryService,
+      company: empresa || undefined,
+      phone: telefono || undefined,
+      service: mapService(servicioFinal),
       status: 'nueva',
       presupuestoNumber,
       userId: userId ?? undefined,
-      pdfUrl,
-      pdfGeneradoAt: fecha,
       wantsWhatsapp: preferenciaContacto === 'whatsapp',
       formData: {
-        servicios,
-        webTipo, webPaginas, webContacto, webExtras,
-        appTipo, appRubro, appExtras,
-        etapaNegocio, tieneWeb, urlWebActual, cuandoEmpezar, comoNosConocio,
-        nombre, empresa, email, whatsapp, preferenciaContacto,
-      },
-      presupuestoCalculado: {
-        items: resultado.items, subtotal: resultado.subtotal, descuento: resultado.descuento,
-        total: resultado.total, tiempoEstimado: resultado.tiempoEstimado,
+        servicio: servicioFinal,
+        quiereContacto,
+        preferenciaContacto,
+        nombre,
+        empresa,
+        email,
+        whatsapp: telefono,
+        ...(serviciosLegacy.length > 0 && { servicios: serviciosLegacy }),
       },
       statusHistory: [{ status: 'nueva', changedAt: new Date() }],
     })
 
-    try {
-      const fmt = (n: number) => `$${n.toLocaleString('es-AR')} ARS`
-      const serviciosList = resultado.items
-        .map(s => `<li style="margin-bottom:6px;color:#374151;font-size:14px">${s.descripcion}</li>`)
-        .join('')
-      await transporter.sendMail({
-        from: `"VM Studio" <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject: `Tu presupuesto de VM Studio — ${presupuestoNumber}`,
-        html: emailShell(`
-          ${emailH2(`Hola, ${nombre}`)}
-          ${emailP('Preparamos una estimación personalizada para tu proyecto:')}
-          <ul style="padding-left:20px;margin:0 0 20px">${serviciosList}</ul>
-          ${emailDarkBlock('Inversión estimada', `DESDE ${fmt(resultado.total)}`)}
-          ${emailP(`Tiempo estimado: ${resultado.tiempoEstimado.label}`)}
-          ${emailP('Nuestro equipo te contactará en <strong>menos de 24 horas</strong>.')}
-          ${emailBtn('https://vmstudioweb.online', 'Ver casos de estudio')}
-        `),
-        attachments: pdfBuffer.length > 0
-          ? [{ filename: `VM-Presupuesto-${presupuestoNumber}.pdf`, content: pdfBuffer, contentType: 'application/pdf' }]
-          : [],
-      })
-    } catch (emailErr) {
-      console.error('[cotizador] Error enviando email:', emailErr)
-    }
-
+    // Notificación in-app a admins
     try {
       const admins = await User.find({ role: { $in: ['admin', 'superadmin'] } }).select('_id')
       for (const admin of admins) {
@@ -200,37 +120,69 @@ export async function POST(request: Request) {
           userId: admin._id.toString(),
           type: 'general',
           title: 'Nueva cotización recibida',
-          message: `${nombre}${empresa ? ` de ${empresa}` : ''} solicitó presupuesto`,
-          link: '/admin/cotizaciones',
+          message: `${nombre} solicitó ${SERVICE_LABELS[servicioFinal] ?? servicioFinal}`,
+          link: `/admin/cotizaciones/${quote._id}`,
         })
-        // Los admins no tienen suscripción push — solo clientes reciben push
       }
     } catch (notifErr) {
       console.error('[cotizador] Error notificando admins:', notifErr)
     }
 
-    // Email a todos los admins sobre la nueva cotización
+    // Email a admins
     try {
-      const serviciosLegibles = resultado.items.map((i: { descripcion: string }) => i.descripcion)
+      const servicioLabel = SERVICE_LABELS[servicioFinal] ?? servicioFinal
+      const contactoPref = preferenciaContacto === 'whatsapp' ? 'WhatsApp' : preferenciaContacto === 'email' ? 'Email' : '—'
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.vmstudioweb.online'
+
       await sendEmailToAdmins({
         subject: `VM Studio — Nueva cotización de ${nombre}`,
-        html: emailAdminNuevaCotizacion({
-          clientName: nombre,
-          clientEmail: email,
-          clientPhone: whatsapp,
-          servicios: serviciosLegibles,
-          presupuestoNumber,
-          quoteId: quote._id.toString(),
-        }),
+        html: emailShell(`
+            <p style="margin:0 0 16px;font-size:14px;color:#374151;">
+              Un potencial cliente completó el formulario de cotización en vmstudioweb.online.
+            </p>
+            <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E5E7EB;margin-bottom:20px;">
+              <tr style="background:#0F172A;">
+                <td colspan="2" style="padding:10px 16px;color:#fff;font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;">Datos del contacto</td>
+              </tr>
+              <tr style="border-bottom:1px solid #F3F4F6;">
+                <td style="padding:10px 16px;font-size:12px;color:#6B7280;width:40%;">Nombre</td>
+                <td style="padding:10px 16px;font-size:14px;color:#111827;font-weight:600;">${nombre}</td>
+              </tr>
+              <tr style="border-bottom:1px solid #F3F4F6;">
+                <td style="padding:10px 16px;font-size:12px;color:#6B7280;">Email</td>
+                <td style="padding:10px 16px;font-size:14px;color:#111827;">${email}</td>
+              </tr>
+              <tr style="border-bottom:1px solid #F3F4F6;">
+                <td style="padding:10px 16px;font-size:12px;color:#6B7280;">Teléfono</td>
+                <td style="padding:10px 16px;font-size:14px;color:#111827;">${telefono || '—'}</td>
+              </tr>
+              <tr style="border-bottom:1px solid #F3F4F6;">
+                <td style="padding:10px 16px;font-size:12px;color:#6B7280;">Servicio solicitado</td>
+                <td style="padding:10px 16px;font-size:14px;color:#1d4ed8;font-weight:700;">${servicioLabel}</td>
+              </tr>
+              <tr style="border-bottom:1px solid #F3F4F6;">
+                <td style="padding:10px 16px;font-size:12px;color:#6B7280;">¿Quiere ser contactado?</td>
+                <td style="padding:10px 16px;font-size:14px;color:#111827;">${quiereContacto ? 'Sí' : 'No'}</td>
+              </tr>
+              <tr>
+                <td style="padding:10px 16px;font-size:12px;color:#6B7280;">Preferencia de contacto</td>
+                <td style="padding:10px 16px;font-size:14px;color:#111827;">${contactoPref}</td>
+              </tr>
+            </table>
+            <a href="${appUrl}/admin/cotizaciones/${quote._id}"
+               style="display:inline-block;padding:10px 24px;background:#0F172A;color:#fff;font-size:12px;font-weight:600;letter-spacing:0.1em;text-decoration:none;text-transform:uppercase;">
+              VER COTIZACIÓN →
+            </a>
+          `),
       })
-    } catch (e) { console.error('[email admin] nueva cotización:', e) }
+    } catch (e) {
+      console.error('[email admin] nueva cotización:', e)
+    }
 
     return NextResponse.json({
       success: true,
       presupuestoNumber,
-      total: resultado.total,
-      tiempoEstimado: resultado.tiempoEstimado,
-      pdfUrl,
+      quoteId: quote._id.toString(),
     }, { headers: corsHeaders })
 
   } catch (err) {

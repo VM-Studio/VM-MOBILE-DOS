@@ -5,26 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 interface QuoteHistory { status: string; changedAt: string; note?: string }
-interface QuoteFormData {
-  servicios?: string[]
-  // web
-  webTipo?: string
-  webPaginas?: string
-  webContacto?: string[]
-  webExtras?: string[]
-  // app
-  appTipo?: string
-  appRubro?: string
-  appExtras?: string[]
-  // general
-  etapaNegocio?: string
-  tieneWeb?: boolean
-  urlWebActual?: string
-  cuandoEmpezar?: string
-  comoNosConocio?: string
-  // contact
-  preferenciaContacto?: string
-}
+
 interface Quote {
   _id: string
   name: string
@@ -32,16 +13,36 @@ interface Quote {
   company?: string
   phone?: string
   service: string
-  businessType?: string
-  budget?: string
-  message?: string
   status: string
   notes?: string
+  wantsWhatsapp?: boolean
+  presupuestoNumber?: string
   statusHistory?: QuoteHistory[]
   convertedToProject?: { _id: string; name: string }
-  wantsWhatsapp?: boolean
   createdAt: string
-  formData?: QuoteFormData
+  formData?: {
+    servicio?: string
+    quiereContacto?: boolean
+    preferenciaContacto?: string
+    nombre?: string
+    empresa?: string
+    email?: string
+    whatsapp?: string
+    // Legacy
+    servicios?: string[]
+    webTipo?: string
+    webPaginas?: string
+    webContacto?: string[]
+    webExtras?: string[]
+    appTipo?: string
+    appRubro?: string
+    appExtras?: string[]
+    etapaNegocio?: string
+    tieneWeb?: boolean
+    urlWebActual?: string
+    cuandoEmpezar?: string
+    comoNosConocio?: string
+  }
 }
 
 const statusLabels: Record<string, string> = {
@@ -51,63 +52,41 @@ const statusColors: Record<string, string> = {
   nueva: 'bg-blue-50 text-blue-700', contactado: 'bg-purple-50 text-purple-700',
   propuesta_enviada: 'bg-amber-50 text-amber-700', ganada: 'bg-green-50 text-green-700', perdida: 'bg-red-50 text-red-700',
 }
-const serviceLabels: Record<string, string> = {
-  web: 'Web', app: 'App', otro: 'Otro',
+
+const SERVICE_LABELS: Record<string, string> = {
+  web_basica: 'Web Básica',
+  web_profesional: 'Web Profesional',
+  landing: 'Landing Page',
+  app_mobile: 'App Mobile',
+  app_web: 'App Web',
+  sistema_gestion: 'Sistema de Gestión',
+  ecommerce: 'Tienda Online (E-Commerce)',
+  web: 'Desarrollo Web',
+  app: 'Aplicación',
+  otro: 'Otro',
 }
 
-// ── Label maps for formData ──────────────────────────────────────────────────
-const SERVICIOS_LABELS: Record<string, string> = {
-  web: '🌐 Desarrollo Web', app: '📱 Aplicación',
-}
+// ── Labels legacy ─────────────────────────────────────────────────────────────
 const WEB_TIPO_LABELS: Record<string, string> = {
-  informativa: 'Web informativa / institucional',
-  catalogo: 'Catálogo de productos (sin venta online)',
-  ecommerce: 'Tienda online / E-commerce',
-  reservas: 'Web con sistema de reservas / turnos',
-  landing: 'Landing page (página de venta única)',
+  informativa: 'Web informativa / institucional', catalogo: 'Catálogo de productos',
+  ecommerce: 'Tienda online / E-commerce', reservas: 'Web con reservas / turnos', landing: 'Landing page',
 }
-const WEB_PAGINAS_LABELS: Record<string, string> = {
-  '1-3': '1 a 3 páginas', '4-7': '4 a 7 páginas', '8+': '8 o más páginas',
-}
-const WEB_CONTACTO_LABELS: Record<string, string> = {
-  whatsapp: 'WhatsApp', formulario: 'Formulario de contacto',
-}
+const WEB_PAGINAS_LABELS: Record<string, string> = { '1-3': '1 a 3 páginas', '4-7': '4 a 7 páginas', '8+': '8 o más páginas' }
+const WEB_CONTACTO_LABELS: Record<string, string> = { whatsapp: 'WhatsApp', formulario: 'Formulario de contacto' }
 const WEB_EXTRAS_LABELS: Record<string, string> = {
-  blog: 'Blog / Noticias', reservas: 'Reservas / Turnos online', carrito: 'Carrito de compras',
-  catalogo: 'Catálogo de productos', pasarela_pagos: 'Pasarela de pagos (MercadoPago)',
-  login: 'Sistema de login', panel_admin: 'Panel de administración', seo: 'SEO avanzado',
-  multiidioma: 'Múltiples idiomas', redes_sociales: 'Integración redes sociales',
-  analytics: 'Google Analytics + píxel', chat: 'Chat en vivo',
+  blog: 'Blog', reservas: 'Reservas online', carrito: 'Carrito', catalogo: 'Catálogo',
+  pasarela_pagos: 'MercadoPago', login: 'Login', panel_admin: 'Panel admin', seo: 'SEO', multiidioma: 'Multiidioma',
 }
-const APP_TIPO_LABELS: Record<string, string> = {
-  web: 'Aplicación Web (PWA)', mobile: 'Aplicación Móvil Nativa',
-}
+const APP_TIPO_LABELS: Record<string, string> = { web: 'App Web (PWA)', mobile: 'App Móvil Nativa' }
 const APP_RUBRO_LABELS: Record<string, string> = {
-  comercio: 'Comercio / Ventas', gastronomia: 'Restaurante / Gastronomía',
-  servicios: 'Servicios profesionales', salud: 'Salud / Bienestar',
-  educacion: 'Educación', entretenimiento: 'Entretenimiento', otro: 'Otro',
-}
-const APP_EXTRAS_LABELS: Record<string, string> = {
-  usuarios: 'Sistema de usuarios y perfiles', push: 'Notificaciones push',
-  chat: 'Chat en tiempo real', pagos: 'Pagos dentro de la app',
-  geo: 'Geolocalización / Mapas', dashboard: 'Dashboard con estadísticas',
-  api: 'Integración con sistema externo', panel_admin: 'Panel de administración',
-  reservas: 'Sistema de reservas / turnos', ecommerce: 'Tienda / E-commerce',
-  multiidioma: 'Soporte multiidioma', offline: 'Modo sin conexión (offline)',
+  comercio: 'Comercio', gastronomia: 'Gastronomía', servicios: 'Servicios profesionales',
+  salud: 'Salud', educacion: 'Educación', entretenimiento: 'Entretenimiento', otro: 'Otro',
 }
 const ETAPA_LABELS: Record<string, string> = {
-  nuevo: 'Estoy empezando (nuevo negocio)',
-  sin_presencia: 'Tengo negocio pero sin presencia online',
-  mejorar: 'Tengo presencia online pero quiero mejorarla',
-  escalar: 'Ya tengo todo, quiero escalar',
+  nuevo: 'Nuevo negocio', sin_presencia: 'Sin presencia online', mejorar: 'Quiere mejorar', escalar: 'Quiere escalar',
 }
 const CUANDO_LABELS: Record<string, string> = {
-  ahora: 'Lo antes posible', '1mes': 'En el próximo mes',
-  '2-3meses': 'En 2 o 3 meses', investigando: 'Solo estoy investigando precios',
-}
-const CONOCIO_LABELS: Record<string, string> = {
-  google: 'Google', instagram: 'Instagram', facebook: 'Facebook',
-  recomendacion: 'Recomendación', otro: 'Otro',
+  ahora: 'Lo antes posible', '1mes': 'En el próximo mes', '2-3meses': 'En 2 o 3 meses', investigando: 'Solo investigando',
 }
 
 function TagList({ items, map }: { items: string[]; map: Record<string, string> }) {
@@ -242,108 +221,93 @@ export default function AdminCotizacionDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main info */}
         <div className="lg:col-span-2 space-y-5">
+
+          {/* ── Datos del contacto ── */}
           <div className="bg-white border border-gray-200 p-6">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-4">Información del contacto</p>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-4">Datos del contacto</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {[
-                { label: 'Nombre', value: quote.name },
-                { label: 'Email', value: quote.email },
-                { label: 'Empresa', value: quote.company || '—' },
-                { label: 'Teléfono', value: quote.phone || '—' },
-                { label: 'Servicio', value: serviceLabels[quote.service] || quote.service },
-                { label: 'Presupuesto', value: quote.budget || '—' },
-                { label: 'Rubro', value: quote.businessType || '—' },
-                { label: 'Fecha', value: new Date(quote.createdAt).toLocaleDateString('es-AR') },
-                { label: 'Quiere WhatsApp', value: quote.wantsWhatsapp ? 'Sí' : 'No' },
-              ].map(({ label, value }) => (
-                <div key={label}>
-                  <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">{label}</p>
-                  <p className="text-sm text-gray-800 mt-0.5">{value}</p>
-                </div>
-              ))}
+              <FRow label="Nombre" value={quote.name} />
+              <FRow label="Email" value={quote.email} />
+              <FRow label="Teléfono" value={quote.phone} />
+              <FRow label="Empresa" value={quote.company} />
+              <FRow label="Fecha" value={new Date(quote.createdAt).toLocaleDateString('es-AR')} />
+              <FRow label="Nº presupuesto" value={quote.presupuestoNumber} />
             </div>
-            {quote.message && (
-              <div className="mt-4 pt-4 border-t border-gray-50">
-                <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1">Mensaje</p>
-                <p className="text-sm text-gray-700 font-light">{quote.message}</p>
+          </div>
+
+          {/* ── Servicio solicitado ── */}
+          <div className="bg-white border border-gray-200 p-6">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-4">Servicio solicitado</p>
+            {quote.formData?.servicio ? (
+              <div className="space-y-3">
+                {/* Badge de servicio */}
+                <div className="inline-flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-100">
+                  <span className="text-sm font-semibold text-blue-700">
+                    {SERVICE_LABELS[quote.formData.servicio] ?? quote.formData.servicio}
+                  </span>
+                </div>
+                {/* Contacto */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                  <FRow
+                    label="¿Quiere ser contactado?"
+                    value={quote.formData.quiereContacto === true ? 'Sí' : quote.formData.quiereContacto === false ? 'No' : '—'}
+                  />
+                  <FRow
+                    label="Preferencia de contacto"
+                    value={
+                      quote.formData.preferenciaContacto === 'whatsapp' ? 'WhatsApp' :
+                      quote.formData.preferenciaContacto === 'email' ? 'Email' :
+                      quote.formData.preferenciaContacto || '—'
+                    }
+                  />
+                </div>
+              </div>
+            ) : (
+              /* Legacy — cotizador viejo con servicios múltiples */
+              <div className="space-y-4">
+                <FRow label="Servicio principal" value={SERVICE_LABELS[quote.service] ?? quote.service} />
+                {quote.formData?.servicios && quote.formData.servicios.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1">Servicios seleccionados</p>
+                    <TagList items={quote.formData.servicios} map={SERVICE_LABELS} />
+                  </div>
+                )}
+                {quote.formData?.webTipo && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-gray-50 pt-4">
+                    <FRow label="Tipo de web" value={WEB_TIPO_LABELS[quote.formData.webTipo] ?? quote.formData.webTipo} />
+                    <FRow label="Páginas" value={WEB_PAGINAS_LABELS[quote.formData.webPaginas ?? ''] ?? quote.formData.webPaginas} />
+                  </div>
+                )}
+                {quote.formData?.webContacto && quote.formData.webContacto.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1">Formas de contacto</p>
+                    <TagList items={quote.formData.webContacto} map={WEB_CONTACTO_LABELS} />
+                  </div>
+                )}
+                {quote.formData?.webExtras && quote.formData.webExtras.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1">Extras web</p>
+                    <TagList items={quote.formData.webExtras} map={WEB_EXTRAS_LABELS} />
+                  </div>
+                )}
+                {quote.formData?.appTipo && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-gray-50 pt-4">
+                    <FRow label="Tipo de app" value={APP_TIPO_LABELS[quote.formData.appTipo] ?? quote.formData.appTipo} />
+                    <FRow label="Rubro" value={APP_RUBRO_LABELS[quote.formData.appRubro ?? ''] ?? quote.formData.appRubro} />
+                  </div>
+                )}
+                {quote.formData?.etapaNegocio && (
+                  <div className="border-t border-gray-50 pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <FRow label="Etapa del negocio" value={ETAPA_LABELS[quote.formData.etapaNegocio] ?? quote.formData.etapaNegocio} />
+                    <FRow label="¿Cuándo empezar?" value={CUANDO_LABELS[quote.formData.cuandoEmpezar ?? ''] ?? quote.formData.cuandoEmpezar} />
+                    <FRow label="Preferencia de contacto" value={quote.formData.preferenciaContacto} />
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {/* ── Detalle del formulario ── */}
-          {quote.formData && (
-            <div className="bg-white border border-gray-200 p-6 space-y-6">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Detalle del formulario</p>
-
-              {/* Servicios seleccionados */}
-              {quote.formData.servicios && quote.formData.servicios.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1">Servicios solicitados</p>
-                  <TagList items={quote.formData.servicios} map={SERVICIOS_LABELS} />
-                </div>
-              )}
-
-              {/* WEB */}
-              {quote.formData.servicios?.includes('web') && (
-                <div className="border-t border-gray-50 pt-5 space-y-4">
-                  <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-widest">🌐 Desarrollo Web</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <FRow label="Tipo de web" value={WEB_TIPO_LABELS[quote.formData.webTipo ?? ''] ?? quote.formData.webTipo} />
-                    <FRow label="Cantidad de páginas" value={WEB_PAGINAS_LABELS[quote.formData.webPaginas ?? ''] ?? quote.formData.webPaginas} />
-                  </div>
-                  {quote.formData.webContacto && quote.formData.webContacto.length > 0 && (
-                    <div>
-                      <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1">Formas de contacto</p>
-                      <TagList items={quote.formData.webContacto} map={WEB_CONTACTO_LABELS} />
-                    </div>
-                  )}
-                  {quote.formData.webExtras && quote.formData.webExtras.length > 0 && (
-                    <div>
-                      <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1">Funcionalidades adicionales</p>
-                      <TagList items={quote.formData.webExtras} map={WEB_EXTRAS_LABELS} />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* APP */}
-              {quote.formData.servicios?.includes('app') && (
-                <div className="border-t border-gray-50 pt-5 space-y-4">
-                  <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-widest">📱 Aplicación</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <FRow label="Tipo de app" value={APP_TIPO_LABELS[quote.formData.appTipo ?? ''] ?? quote.formData.appTipo} />
-                    <FRow label="Rubro / Industria" value={APP_RUBRO_LABELS[quote.formData.appRubro ?? ''] ?? quote.formData.appRubro} />
-                  </div>
-                  {quote.formData.appExtras && quote.formData.appExtras.length > 0 && (
-                    <div>
-                      <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1">Funcionalidades adicionales</p>
-                      <TagList items={quote.formData.appExtras} map={APP_EXTRAS_LABELS} />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* GENERAL */}
-              <div className="border-t border-gray-50 pt-5 space-y-4">
-                <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-widest">📋 Información general</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FRow label="Etapa del negocio" value={ETAPA_LABELS[quote.formData.etapaNegocio ?? ''] ?? quote.formData.etapaNegocio} />
-                  <FRow label="¿Tiene sitio web actual?" value={quote.formData.tieneWeb === true ? 'Sí' : quote.formData.tieneWeb === false ? 'No' : undefined} />
-                  {quote.formData.tieneWeb && quote.formData.urlWebActual && (
-                    <div className="sm:col-span-2">
-                      <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">URL del sitio actual</p>
-                      <a href={quote.formData.urlWebActual} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline mt-0.5 block break-all">{quote.formData.urlWebActual}</a>
-                    </div>
-                  )}
-                  <FRow label="¿Cuándo quiere empezar?" value={CUANDO_LABELS[quote.formData.cuandoEmpezar ?? ''] ?? quote.formData.cuandoEmpezar} />
-                  <FRow label="¿Cómo nos conoció?" value={CONOCIO_LABELS[quote.formData.comoNosConocio ?? ''] ?? quote.formData.comoNosConocio} />
-                  <FRow label="Preferencia de contacto" value={quote.formData.preferenciaContacto} />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Notes */}
+          {/* ── Notas internas ── */}
           <div className="bg-white border border-gray-200 p-6">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">Notas internas</p>
             <textarea
@@ -375,7 +339,7 @@ export default function AdminCotizacionDetailPage() {
 
           {/* Status history */}
           {quote.statusHistory && quote.statusHistory.length > 0 && (
-          <div className="bg-white border border-gray-200 p-5">
+            <div className="bg-white border border-gray-200 p-5">
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">Historial</p>
               <div className="space-y-3">
                 {[...quote.statusHistory].reverse().map((h, i) => (

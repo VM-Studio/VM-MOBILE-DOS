@@ -5,7 +5,7 @@ export interface IQuote extends Document {
   email: string;
   company?: string;
   phone?: string;
-  service: 'web' | 'app' | 'google_ads' | 'meta_ads' | 'combo' | 'otro';
+  service: 'web' | 'app' | 'otro' | 'web_basica' | 'web_profesional' | 'landing' | 'app_mobile' | 'app_web' | 'sistema_gestion' | 'ecommerce';
   businessType?: string;
   budget?: string;
   message?: string;
@@ -20,13 +20,17 @@ export interface IQuote extends Document {
   convertedToProject?: Types.ObjectId;
   wantsWhatsapp?: boolean;
 
-  // ─── FASE 8: Cotizador inteligente ───────────────────
+  // ─── Cotizador ────────────────────────────────────────
   presupuestoNumber?: string;
   userId?: Types.ObjectId;
   pdfUrl?: string | null;
   pdfGeneradoAt?: Date | null;
 
   formData?: {
+    // Nuevo cotizador simple (web 2026)
+    servicio?: string;
+    quiereContacto?: boolean;
+    // Legacy — cotizador complejo anterior
     servicios?: string[];
     webTipo?: string;
     webPaginas?: string;
@@ -40,6 +44,7 @@ export interface IQuote extends Document {
     urlWebActual?: string;
     cuandoEmpezar?: string;
     comoNosConocio?: string;
+    // Datos de contacto
     nombre?: string;
     empresa?: string;
     email?: string;
@@ -67,7 +72,7 @@ const QuoteSchema = new Schema<IQuote>(
     phone: { type: String },
     service: {
       type: String,
-      enum: ['web', 'app', 'otro'],
+      enum: ['web', 'app', 'otro', 'web_basica', 'web_profesional', 'landing', 'app_mobile', 'app_web', 'sistema_gestion', 'ecommerce'],
       required: true,
     },
     businessType: { type: String },
@@ -97,6 +102,10 @@ const QuoteSchema = new Schema<IQuote>(
     pdfGeneradoAt: { type: Date, default: null },
 
     formData: {
+      // Nuevo cotizador simple
+      servicio: String,
+      quiereContacto: Boolean,
+      // Legacy
       servicios: [String],
       webTipo: String,
       webPaginas: String,
