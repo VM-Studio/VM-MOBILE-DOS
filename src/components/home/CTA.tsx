@@ -21,10 +21,10 @@ const CTA = () => {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <a
-              href="/cotizador"
+              href="#contact"
               className="inline-block px-8 sm:px-12 py-4 bg-gradient-to-r from-gray-900 to-blue-700 text-white text-sm font-medium tracking-wider transition-all duration-300 hover:scale-105 hover:shadow-2xl active:scale-[0.98]"
             >
-              CALCULAR MI PRESUPUESTO →
+              CONTACTANOS →
             </a>
             <a
               href="/contacto"

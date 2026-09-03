@@ -15,20 +15,6 @@ const statusLabels: Record<string, string> = {
   completado: 'Completado',
   pausado: 'Pausado',
 }
-const quoteStatusLabels: Record<string, string> = {
-  nueva: 'Nueva',
-  contactado: 'Contactado',
-  propuesta_enviada: 'Propuesta enviada',
-  ganada: 'Ganada',
-  perdida: 'Perdida',
-}
-const quoteStatusColors: Record<string, string> = {
-  nueva: 'bg-blue-100 text-blue-700',
-  contactado: 'bg-amber-100 text-amber-700',
-  propuesta_enviada: 'bg-purple-100 text-purple-700',
-  ganada: 'bg-green-100 text-green-700',
-  perdida: 'bg-red-100 text-red-700',
-}
 
 export default function AdminPage() {
   const { stats, isLoading: loading } = useAdminStats()
@@ -36,7 +22,6 @@ export default function AdminPage() {
   const kpis = stats ? [
     { label: 'Clientes', value: stats.totalClients, href: '/admin/clientes' },
     { label: 'Proyectos activos', value: stats.activeProjects, href: '/admin/proyectos' },
-    { label: 'Cotizaciones nuevas', value: stats.newQuotes, href: '/admin/cotizaciones' },
     { label: 'Facturas pendientes', value: stats.pendingInvoices, href: '/admin/facturacion' },
     { label: 'Tickets abiertos', value: stats.openTickets, href: '/admin/soporte' },
     { label: 'Ingresos totales', value: `$${stats.totalRevenue.toLocaleString('es-AR')}`, href: '/admin/facturacion' },
@@ -71,7 +56,7 @@ export default function AdminPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         <div className="bg-white border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <span className="text-[11px] font-medium tracking-[0.2em] text-gray-400 uppercase">[ PROYECTOS RECIENTES ]</span>
@@ -90,25 +75,6 @@ export default function AdminPage() {
                   <span className="text-xs text-gray-500">{p.progress}%</span>
                   <span className={`text-[10px] font-medium tracking-wider px-2 py-0.5 uppercase ${statusColors[p.status] || 'bg-gray-100 text-gray-600'}`}>{statusLabels[p.status] || p.status}</span>
                 </div>
-              </Link>
-            ))}</div>}
-        </div>
-
-        <div className="bg-white border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-[11px] font-medium tracking-[0.2em] text-gray-400 uppercase">[ ÚLTIMAS COTIZACIONES ]</span>
-            <Link href="/admin/cotizaciones" className="text-xs text-blue-600 hover:underline">Ver todas →</Link>
-          </div>
-          {loading ? <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-12 bg-gray-50 animate-pulse" />)}</div>
-            : !stats?.recentQuotes?.length ? <p className="text-sm text-gray-400">No hay cotizaciones aún.</p>
-            : <div className="space-y-2">{stats.recentQuotes.map((q: { _id: string; name: string; service: string; email: string; status: string }) => (
-              <Link key={q._id} href={`/admin/cotizaciones/${q._id}`}
-                className="flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 hover:border-l-2 hover:border-blue-400 transition-all group">
-                <div>
-                  <p className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors">{q.name}</p>
-                  <p className="text-xs text-gray-400">{q.service} · {q.email}</p>
-                </div>
-                <span className={`text-[10px] font-medium tracking-wider px-2 py-0.5 uppercase ${quoteStatusColors[q.status] || 'bg-gray-100 text-gray-600'}`}>{quoteStatusLabels[q.status] || q.status}</span>
               </Link>
             ))}</div>}
         </div>

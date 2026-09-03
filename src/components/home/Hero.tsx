@@ -30,10 +30,10 @@ const Hero = () => {
 
             <div className="flex flex-col sm:flex-row gap-4">
               <a
-                href="/cotizador"
+                href="#contact"
                 className="group relative px-6 sm:px-8 py-4 bg-gradient-to-r from-gray-900 to-blue-700 text-white text-center text-sm font-medium tracking-wider overflow-hidden transition-all duration-300 hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98]"
               >
-                <span className="relative z-10">CALCULÁ TU PRESUPUESTO →</span>
+                <span className="relative z-10">CONTACTANOS →</span>
                 <div className="absolute inset-0 bg-blue-600 opacity-0 group-hover:opacity-20 transition-opacity duration-300" />
               </a>
               <a
