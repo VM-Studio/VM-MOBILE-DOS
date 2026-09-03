@@ -81,7 +81,7 @@ export default function ProjectPreview({ project, compact = false }: ProjectPrev
                   src={project.previewImageUrl}
                   alt={`Preview de ${project.name}`}
                   fill
-                  className="object-cover object-top transition-transform duration-500 group-hover:scale-105"
+                  className="object-contain object-top transition-transform duration-500 group-hover:scale-105"
                   unoptimized
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -179,7 +179,7 @@ export default function ProjectPreview({ project, compact = false }: ProjectPrev
                 src={project.previewImageUrl}
                 alt={`Preview de ${project.name}`}
                 fill
-                className="object-cover object-top transition-transform duration-700 group-hover:scale-105"
+                className="object-contain object-top transition-transform duration-700 group-hover:scale-105"
                 unoptimized
               />
               <div className="absolute inset-0 flex items-end justify-start p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-t from-black/40 to-transparent">
